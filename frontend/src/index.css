@@ -1,0 +1,5 @@
+:root { --sans: 'Trebuchet MS', 'Segoe UI', sans-serif; --heading: Georgia, 'Times New Roman', serif; --mono: 'Courier New', monospace; font: 16px/1.5 var(--sans); color: #173b36; background: #f5f1e8; font-synthesis: none; text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+#root { min-height: 100vh; }
+h1, h2, p { margin-top: 0; }
