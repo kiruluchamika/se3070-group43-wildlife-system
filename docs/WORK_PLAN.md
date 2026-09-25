@@ -54,16 +54,30 @@ Everyone uses **Node.js 22 LTS** (minimum 20.19). Check with `node --version`.
 | Thu 8 Oct | Fresh-clone verification (§8), merge the final PRs, tag `v1.0` | Leader |
 | Fri 9 Oct | Buffer. Submit the PDF before 11:59 PM, then freeze the repository | Leader |
 
+## 3a. Branching model
+
+| Branch | Purpose | Who merges into it |
+|---|---|---|
+| `main` | The stable, submitted version. It only receives tested releases from `dev` | Leader, at integration checkpoints and on 8 Oct |
+| `dev` | The integration branch. All feature PRs target `dev` | Leader, after one teammate has reviewed the PR |
+| `feature/<module>` | One member's use case (see §1) | The owner commits here |
+
+Workflow:
+- Each member branches from `dev` and opens a PR into `dev`.
+- The leader merges `dev` into `main` after the integration checks pass (§7).
+- Keep your feature branch current with `git pull origin dev` and then `git merge dev`.
+
 ## 4. Per-member checklist
 
 1. Read your use case in Group 41's report. List the main flow, every alternative flow (A1, A2, …) and every exception flow (E1, E2, …).
 2. Add your rows to the critique table (§6), then discuss them at the design review.
-3. Create your branch:
+3. Create your branch from `dev` (see §3a):
    ```
-   git switch main
+   git switch dev
    git pull
    git switch -c feature/<your-module>
    ```
+   When your work is ready, push the branch and open a pull request **into `dev`**, not `main`.
 4. **Backend:** create `backend/src/modules/<module>/` using the same layers as `alerts/` and `teams/`:
    - `*.model.js`: Mongoose schema
    - `*.repository.js`: data access only; returns plain objects
@@ -131,7 +145,7 @@ Use **one** backend and the shared `wildguard` database for the demonstration.
 
 ## 8. Definition of done and submission check
 
-- The PR is reviewed by one teammate. The app builds (`npm run build`) and lint passes (`npm run lint`).
+- The PR into `dev` is reviewed by one teammate. The app builds (`npm run build`) and lint passes (`npm run lint`).
 - Tests pass with **>80%** coverage for the module.
 - The UI matches the agreed wireframes, and every scenario in the report is implemented.
 - **Before submitting:** clone the repo into a fresh folder, follow the README, run `npm run seed`, start both apps and run the tests. Confirm the report describes exactly this version.
