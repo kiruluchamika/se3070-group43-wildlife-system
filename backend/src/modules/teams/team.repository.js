@@ -28,6 +28,10 @@ function createTeamRepository(RangerTeam) {
       ).lean()
     },
 
+    updateLocation(teamId, location, { session } = {}) {
+      return RangerTeam.findByIdAndUpdate(teamId, { $set: { lastKnownLocation: location } }, { returnDocument: 'after', session }).lean()
+    },
+
     setStatus(teamId, status, { session } = {}) {
       return RangerTeam.findByIdAndUpdate(teamId, { $set: { status } }, { returnDocument: 'after', session }).lean()
     }

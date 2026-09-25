@@ -41,7 +41,24 @@ Base URL: `/api` (frontend `VITE_API_URL`). Every request and response body is J
 
 Each member documents their own endpoints below, using the same table format.
 
-- **UC04 Patrol management (HETTIGE K.C.):** see the `feature/patrol-management` branch.
+### UC04 Patrol management (HETTIGE K.C.)
+
+See [design/UC04-patrol-management.md](design/UC04-patrol-management.md) for the rules.
+
+| Method | Path | Roles | Body / query | Result |
+|---|---|---|---|---|
+| GET | `/api/patrol/coverage?parkId=` | park-manager | — | `{ park, policy, generatedAt, summary, zones[], routes[], teams[] }`. Each zone has `status`, `coveragePercent`, `hoursSinceLastPatrol`, `effectiveRisk`, `reasons`, `recommendedAction`, `priorityScore` |
+| GET | `/api/patrol/teams?parkId=&zoneId=` | park-manager | — | Teams with `currentAssignment`, plus `distanceKm` / `etaMinutes` to the zone |
+| GET | `/api/patrol/assignments?parkId=` | park-manager | — | Active assignments |
+| POST | `/api/patrol/assignments` | park-manager | `{ zoneId, teamId, notes? }` | 201 `{ assignment, team, zone }`. 409 `TEAM_NOT_AVAILABLE`, 422 `TEAM_PARK_MISMATCH` |
+| POST | `/api/patrol/assignments/reassign` | park-manager | `{ zoneId, teamId, reason, notes?, override? }` | 201 `{ assignment, team, zone, vacatedZone }`. 409 `PRIORITY_DOWNGRADE`, `TEAM_RESPONDING`, `SAME_ZONE`, `TEAM_IS_AVAILABLE` |
+| PATCH | `/api/patrol/assignments/:id/complete` | park-manager | — | Ends the patrol, records it and frees the team |
+| PATCH | `/api/patrol/assignments/:id/acknowledge` | ranger (team member) | — | 403 `NOT_TEAM_MEMBER` |
+| GET | `/api/patrol/my-assignment` | ranger | — | `{ team, assignment }` |
+| GET | `/api/patrol/emergency-dispatches/recommendations?alertId=` | park-manager | — | `{ alert, mode (available / divert / none), recommended, available[], divertible[] }` |
+| POST | `/api/patrol/emergency-dispatches` | park-manager | `{ alertId, teamId?, notes? }` | 201 `{ dispatch, assignment, team, alert, diverted }`. 409 `NO_TEAM_AVAILABLE`, 422 `ALERT_NOT_ELIGIBLE` |
+| GET | `/api/patrol/decisions?parkId=` | park-manager | — | Allocation history, newest first |
+
 - **UC01 Conflict response (WITTAHACHCHI D.K.G):** *to be added*
 - **UC02 Analysis and reports (JALATHGE C.A.J):** *to be added*
 - **UC03 Incident reporting (KALMADU H L G):** *to be added*

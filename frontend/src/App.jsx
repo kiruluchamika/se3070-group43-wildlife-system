@@ -21,7 +21,14 @@ const NotFoundPage = lazy(() => import('./features/errors/NotFoundPage'))
  * Screens that are finished, keyed by path. Every other NAV_ITEMS entry shows
  * the module placeholder until its owner adds the page here.
  */
-const PAGES = {}
+const PAGES = {
+  // UC04 — Monitor Patrol Coverage and Allocate Resources (HETTIGE K.C.)
+  '/patrol': lazy(() => import('./features/patrol/pages/PatrolDashboardPage')),
+  '/patrol/alerts': lazy(() => import('./features/patrol/pages/AlertsPage')),
+  '/patrol/teams': lazy(() => import('./features/patrol/pages/RangerTeamsPage')),
+  '/patrol/history': lazy(() => import('./features/patrol/pages/AllocationHistoryPage')),
+  '/my-assignment': lazy(() => import('./features/patrol/pages/MyAssignmentPage')),
+}
 
 function ThemedToaster() {
   const { theme } = useTheme()

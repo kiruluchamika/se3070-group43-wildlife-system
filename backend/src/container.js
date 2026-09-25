@@ -17,6 +17,12 @@ const { createAlertRouter } = require('./modules/alerts/alert.routes')
 const { createNotificationRepository } = require('./modules/notifications/notification.repository')
 const { createNotificationService } = require('./modules/notifications/notification.service')
 const { createNotificationRouter } = require('./modules/notifications/notification.routes')
+const { createPatrolRepository } = require('./modules/patrol/patrol.repository')
+const { createCoverageService } = require('./modules/patrol/coverage.service')
+const { createAllocationService } = require('./modules/patrol/allocation.service')
+const { createEmergencyDispatchService } = require('./modules/patrol/emergency-dispatch.service')
+const { createPatrolController } = require('./modules/patrol/patrol.controller')
+const { createPatrolRouter } = require('./modules/patrol/patrol.routes')
 
 /** Loads the Mongoose models only when real repositories are needed. */
 function loadModels() {
@@ -26,7 +32,11 @@ function loadModels() {
     Zone: require('./modules/parks/zone.model'),
     RangerTeam: require('./modules/teams/ranger-team.model'),
     Alert: require('./modules/alerts/alert.model'),
-    Notification: require('./modules/notifications/notification.model')
+    Notification: require('./modules/notifications/notification.model'),
+    PatrolRecord: require('./modules/patrol/patrol-record.model'),
+    PatrolAssignment: require('./modules/patrol/patrol-assignment.model'),
+    AllocationDecision: require('./modules/patrol/allocation-decision.model'),
+    EmergencyDispatch: require('./modules/patrol/emergency-dispatch.model')
   }
 }
 
@@ -36,7 +46,8 @@ function createRepositories(models) {
     parkRepository: createParkRepository(models),
     teamRepository: createTeamRepository(models.RangerTeam),
     alertRepository: createAlertRepository(models.Alert),
-    notificationRepository: createNotificationRepository(models.Notification)
+    notificationRepository: createNotificationRepository(models.Notification),
+    patrolRepository: createPatrolRepository(models)
   }
 }
 
@@ -50,6 +61,7 @@ function createRepositories(models) {
 function createContainer({
   config,
   repositories = createRepositories(loadModels()),
+  transactionRunner,
   passwordHasher = createPasswordHasher(),
   clock = () => new Date()
 }) {
@@ -63,6 +75,21 @@ function createContainer({
     notificationService: createNotificationService({ notificationRepository: repositories.notificationRepository, clock })
   }
 
+  // UC04 — Monitor Patrol Coverage and Allocate Resources (HETTIGE K.C.)
+  const patrolDependencies = {
+    transactionRunner,
+    clock,
+    parkRepository: repositories.parkRepository,
+    teamRepository: repositories.teamRepository,
+    patrolRepository: repositories.patrolRepository,
+    teamService: services.teamService,
+    alertService: services.alertService,
+    notificationService: services.notificationService
+  }
+  services.coverageService = createCoverageService(patrolDependencies)
+  services.allocationService = createAllocationService({ ...patrolDependencies, coverageService: services.coverageService })
+  services.emergencyDispatchService = createEmergencyDispatchService({ ...patrolDependencies, coverageService: services.coverageService })
+
   const routes = [
     { path: '/api/auth', router: createAuthRouter({ authController: createAuthController(services), authenticate }) },
     { path: '/api/parks', router: createParkRouter({ parkRepository: repositories.parkRepository, authenticate }) },
@@ -71,7 +98,8 @@ function createContainer({
     {
       path: '/api/notifications',
       router: createNotificationRouter({ notificationService: services.notificationService, authenticate })
-    }
+    },
+    { path: '/api/patrol', router: createPatrolRouter({ patrolController: createPatrolController(services), authenticate }) }
   ]
 
   return { repositories, services, routes, tokenService }
