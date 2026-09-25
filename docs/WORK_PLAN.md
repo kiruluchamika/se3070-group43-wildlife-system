@@ -103,7 +103,7 @@ Workflow:
 | Team statuses `available`, `on-patrol`, `responding`, `off-duty` | `teams/ranger-team.model.js` | UC01, UC04 |
 | `alertService.raise({ park, zone, type, severity, title, message, location, source, sourceRef })` | `backend/src/modules/alerts/alert.service.js` | **UC03** raises an alert after an incident is synchronised (for example a snare or carcass). The simulated collar and camera-trap feeds also use it |
 | `notificationService.notifyUsers(userIds, { type, title, message, link }, { session })` | `backend/src/modules/notifications/notification.service.js` | UC01 (notify the parties), **UC02** ("Share report with Park Manager"), UC04 |
-| `coverageService` (zone coverage %, under-patrolled rule) | `backend/src/modules/patrol/` (UC04 branch) | **UC02** reuses it so coverage figures match on every screen |
+| `coverageService.assessPark(parkId)` / `assessZones(...)` (zone coverage %, under-patrolled rule) | `backend/src/modules/patrol/coverage.service.js` | **UC02** reuses it so coverage figures match on every screen |
 | `transactionRunner.run(async (session) => …)` | `backend/src/config/database.js` | Any operation that writes more than one document |
 | Error format `{ message, code, details }` + `AppError` subclasses | `backend/src/shared/errors/AppError.js` | Everyone |
 | `api.get/post/patch`, `useApiQuery`, `Card`, `Button`, `Modal`, `Badge`, `Field` | `frontend/src/lib`, `hooks`, `components/ui` | Everyone |

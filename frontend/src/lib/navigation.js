@@ -46,12 +46,12 @@ export const NAV_ITEMS = [
   { path: '/', label: 'Dashboard', icon: Home, roles: Object.values(ROLES), ready: true, end: true },
 
   // UC04 — Park Manager
-  { path: '/patrol', label: 'Patrol Coverage', icon: Map, roles: [ROLES.PARK_MANAGER], useCase: 'UC04', end: true },
-  { path: '/patrol/alerts', label: 'Alerts', icon: ShieldAlert, roles: [ROLES.PARK_MANAGER], useCase: 'UC04' },
-  { path: '/patrol/teams', label: 'Ranger Teams', icon: Users, roles: [ROLES.PARK_MANAGER], useCase: 'UC04' },
-  { path: '/patrol/history', label: 'Allocation History', icon: History, roles: [ROLES.PARK_MANAGER], useCase: 'UC04' },
+  { path: '/patrol', label: 'Patrol Coverage', icon: Map, roles: [ROLES.PARK_MANAGER], useCase: 'UC04', ready: true, end: true },
+  { path: '/patrol/alerts', label: 'Alerts', icon: ShieldAlert, roles: [ROLES.PARK_MANAGER], useCase: 'UC04', ready: true },
+  { path: '/patrol/teams', label: 'Ranger Teams', icon: Users, roles: [ROLES.PARK_MANAGER], useCase: 'UC04', ready: true },
+  { path: '/patrol/history', label: 'Allocation History', icon: History, roles: [ROLES.PARK_MANAGER], useCase: 'UC04', ready: true },
   // UC04 — Ranger (supporting actor)
-  { path: '/my-assignment', label: 'My Assignment', icon: ClipboardList, roles: [ROLES.RANGER], useCase: 'UC04' },
+  { path: '/my-assignment', label: 'My Assignment', icon: ClipboardList, roles: [ROLES.RANGER], useCase: 'UC04', ready: true },
 
   // UC03 — Ranger
   { path: '/incidents/new', label: 'Report Incident', icon: Siren, roles: [ROLES.RANGER], useCase: 'UC03' },
