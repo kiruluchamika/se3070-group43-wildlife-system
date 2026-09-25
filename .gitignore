@@ -13,3 +13,6 @@ coverage/
 *.sqlite3
 
 backend/uploads/
+
+# Local Claude Code settings
+.claude/
