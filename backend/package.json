@@ -1,12 +1,19 @@
 {
-  "name": "backend",
+  "name": "wildguard-backend",
   "version": "1.0.0",
-  "description": "",
+  "description": "SE3070 Group 43 WildGuard backend (Express + MongoDB)",
   "main": "server.js",
+  "engines": {
+    "node": ">=20.19.0"
+  },
   "scripts": {
     "dev": "nodemon server.js",
     "start": "node server.js",
-    "test": "vitest run --globals"
+    "seed": "node src/seed/seed.js",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "keywords": [],
   "author": "",
@@ -17,11 +24,19 @@
     "cors": "^2.8.6",
     "dotenv": "^18.0.3",
     "express": "^5.2.1",
+    "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
-    "mongoose": "^9.10.2"
+    "mongoose": "^9.10.2",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@vitest/coverage-v8": "^5.0.1",
+    "eslint": "^10.11.0",
+    "globals": "^17.12.0",
+    "mongodb-memory-server": "^11.3.0",
     "nodemon": "^3.1.14",
+    "supertest": "^7.3.0",
     "vitest": "^5.0.1"
   }
 }

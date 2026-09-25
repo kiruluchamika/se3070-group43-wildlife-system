@@ -1,40 +1,24 @@
-require('dotenv').config()
+require('dotenv').config({ quiet: true })
 
-const cors = require('cors')
-const express = require('express')
-const mongoose = require('mongoose')
-const authRoutes = require('./src/routes/auth.routes')
-
-const app = express()
-const port = process.env.PORT || 5000
-
-app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173' }))
-app.use(express.json())
-
-app.get('/api/health', (request, response) => {
-  response.json({ status: 'ok', message: 'Wildlife backend is running' })
-})
-
-app.use('/api/auth', authRoutes)
+const { createApp } = require('./src/app')
+const { createContainer } = require('./src/container')
+const { connectDatabase, createTransactionRunner } = require('./src/config/database')
+const { loadConfig } = require('./src/config/env')
 
 async function startServer() {
-  if (!process.env.MONGODB_URI) {
-    console.warn('MONGODB_URI is not configured. Auth requests will be unavailable.')
-  } else {
-    await mongoose.connect(process.env.MONGODB_URI)
-    console.log('Connected to MongoDB')
-  }
+  const config = loadConfig()
+  const connection = await connectDatabase({ uri: config.mongoUri, dbName: config.mongoDbName })
+  console.log(`Connected to MongoDB database "${config.mongoDbName}"`)
 
-  app.listen(port, () => {
-    console.log(`Backend running at http://localhost:${port}`)
+  const container = createContainer({ config, transactionRunner: createTransactionRunner(connection) })
+  const app = createApp({ config, routes: container.routes })
+
+  app.listen(config.port, () => {
+    console.log(`Backend running at http://localhost:${config.port}`)
   })
 }
 
-if (require.main === module) {
-  startServer().catch((error) => {
-    console.error('Unable to start backend:', error.message)
-    process.exit(1)
-  })
-}
-
-module.exports = app
+startServer().catch((error) => {
+  console.error('Unable to start backend:', error.message)
+  process.exit(1)
+})

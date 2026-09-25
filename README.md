@@ -1,60 +1,99 @@
-# Wildlife Conservation System
+# WildGuard — Smart Wildlife Conservation System
 
-Initial milestone for SE3070 Group 43: user management owned by HETTIGE K.C. (IT23700956).
+SE3070 Case Studies in Software Engineering, Assignment 02 (Group 43). This project implements **Group 41's** design for the *Smart Wildlife Conservation and Anti-Poaching Monitoring System*. It is one responsive web application (installable as a PWA) with a React frontend, an Express backend and MongoDB Atlas.
 
-## Stack
+## Team
 
-- Frontend: React + Vite + plain CSS
-- Backend: Node.js + Express
-- Database: MongoDB Atlas for this initial user-management slice
-- Authentication: bcrypt password hashing and JWT sessions
+| Member | Student ID | Use case |
+|---|---|---|
+| HETTIGE K.C. (leader) | IT23700956 | UC04 — Monitor Patrol Coverage and Allocate Resources |
+| WITTAHACHCHI D.K.G | IT23717404 | UC01 — Respond to Human–Elephant Conflict |
+| KALMADU H L G | IT23701014 | UC03 — Report Wildlife and Poaching Incident |
+| JALATHGE C.A.J | IT23751446 | UC02 — Analyze Conservation Data and Generate Reports |
 
-The assignment brief recommends SQLite for the complete system. MongoDB is used here only because the provided backend configuration is an Atlas URI. The team should agree whether to keep MongoDB or return to SQLite before adding the remaining modules.
+User management, the app shell and the design system are shared work, not graded use cases. The plan, timeline and shared contracts are in [docs/WORK_PLAN.md](docs/WORK_PLAN.md). Design decisions are recorded in [docs/DECISIONS.md](docs/DECISIONS.md).
 
-## Run locally
+## Requirements
 
-Requirements: Node.js 20.19+ or 22.12+.
+- Node.js **22 LTS** (minimum 20.19)
+- A MongoDB Atlas connection string. Ask the group leader for a database user.
 
-1. Install dependencies:
+## Setup
 
-   ```text
-   cd frontend && npm install
-   cd ../backend && npm install
-   ```
+```bash
+git clone https://github.com/kiruluchamika/se3070-group43-wildlife-system.git
+cd se3070-group43-wildlife-system
 
-2. Create `backend/.env` from `backend/.env.example` and provide a MongoDB URI and a new JWT secret. Create `frontend/.env` from `frontend/.env.example` when changing the frontend API URL.
+cd backend
+npm ci
+cp .env.example .env      # then fill in MONGODB_URI, MONGODB_DB_NAME and JWT_SECRET
+npm run seed              # resets the demo data in MONGODB_DB_NAME
 
-3. Start the backend:
-
-   ```text
-   cd backend
-   npm run dev
-   ```
-
-4. In another terminal, start the frontend:
-
-   ```text
-   cd frontend
-   npm run dev
-   ```
-
-Local frontend requests use `/api` and are proxied to `http://localhost:5000`. For production, set `VITE_API_URL` to the deployed backend URL.
-
-## Included user-management flow
-
-- Register with name, email, password, and one of the agreed development roles.
-- Passwords are hashed before storage.
-- Sign in returns an expiring JWT.
-- The frontend persists the token locally and restores the authenticated profile through `/api/auth/me`.
-- Sign out clears the local session.
-
-API routes: `GET /api/health`, `POST /api/auth/register`, `POST /api/auth/login`, and `GET /api/auth/me`.
-
-## Checks
-
-```text
-cd frontend && npm run build
-cd ../backend && npm test
+cd ../frontend
+npm ci
+cp .env.example .env
 ```
 
-Never commit `.env` files or the Atlas credentials. The credentials pasted during setup should be rotated in MongoDB Atlas before being used.
+## Run (two terminals)
+
+| Terminal | Command | URL |
+|---|---|---|
+| Backend | `cd backend && npm run dev` | http://localhost:5000/api/health |
+| Frontend | `cd frontend && npm run dev` | http://localhost:5173 |
+
+### Switching between localhost and production API
+
+`frontend/.env` controls where the browser sends requests:
+
+```bash
+VITE_API_URL=/api                                  # local: proxied to VITE_DEV_PROXY_TARGET (default http://localhost:5000)
+# VITE_API_URL=https://wildguard-api.example.com/api   # production backend
+```
+
+Restart `npm run dev`, or rebuild, after changing it. On the backend, list every frontend origin that may call the API in `CLIENT_URL` (comma-separated).
+
+To deploy from a single origin, run `npm run build` in `frontend`, set `SERVE_FRONTEND=true` in `backend/.env`, and run `npm start` in `backend`. Express then serves both the React app and the API.
+
+## Demo accounts
+
+`npm run seed` creates these accounts. The password for all of them is `WildGuard@2026` (set by `DEMO_PASSWORD`). The login page also has one-click demo buttons, clearly marked as a development feature.
+
+| Role | Email |
+|---|---|
+| Park Manager | manager@wildguard.lk |
+| Ranger (Team Charlie) | ranger@wildguard.lk |
+| Community Liaison Officer | liaison@wildguard.lk |
+| Data Analyst | analyst@wildguard.lk |
+| Villager | villager@wildguard.lk |
+
+The public registration page creates **villager** accounts only. Staff accounts are issued by the park administration.
+
+## Tests and lint
+
+```bash
+cd backend
+npm test                 # Vitest (unit + route + in-memory MongoDB repository tests)
+npm run test:coverage    # V8 coverage report in backend/coverage
+npm run lint
+
+cd ../frontend
+npm run lint
+npm run build
+```
+
+The first backend test run downloads a MongoDB binary for `mongodb-memory-server`. This happens once.
+
+## Simulated integrations
+
+The case study describes several external systems. In this prototype:
+- **GPS-collar** and **camera-trap** alerts are seeded sample records, marked `simulated: true` and labelled in the UI.
+- **SMS delivery** is simulated.
+- Zone boundaries are illustrative polygons, not official park boundaries.
+
+## Project structure
+
+```
+backend/   Express API: src/modules/<module>/{model,repository,service,routes,tests}
+frontend/  React app: src/features/<module>/, shared components in src/components
+docs/      Work plan, decisions, API reference, design critique, AI prompt logs
+```
