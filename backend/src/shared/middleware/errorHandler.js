@@ -20,6 +20,10 @@ function createErrorHandler({ logger = console } = {}) {
       return response.status(400).json({ message: 'The request body is not valid JSON.', code: 'INVALID_JSON' })
     }
 
+    if (error?.type === 'entity.too.large') {
+      return response.status(413).json({ message: 'The request is too large. Attach smaller or fewer photos.', code: 'PAYLOAD_TOO_LARGE' })
+    }
+
     if (error?.name === 'CastError') {
       return response.status(400).json({ message: 'An identifier in the request is not valid.', code: 'INVALID_ID' })
     }
