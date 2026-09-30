@@ -1,10 +1,12 @@
 import {
   BarChart3,
   Bell,
+  ClipboardCheck,
   ClipboardList,
   FileText,
   History,
   Home,
+  ListChecks,
   Map,
   MessageSquareWarning,
   ShieldAlert,
@@ -57,10 +59,12 @@ export const NAV_ITEMS = [
   { path: '/incidents/new', label: 'Report Incident', icon: Siren, roles: [ROLES.RANGER], useCase: 'UC03' },
   { path: '/incidents/pending', label: 'Pending Reports', icon: UploadCloud, roles: [ROLES.RANGER], useCase: 'UC03' },
 
-  // UC01 — Villager, Liaison Officer, Ranger
-  { path: '/conflicts/report', label: 'Report Conflict', icon: MessageSquareWarning, roles: [ROLES.VILLAGER], useCase: 'UC01' },
-  { path: '/conflicts', label: 'Conflict Queue', icon: MessageSquareWarning, roles: [ROLES.LIAISON_OFFICER], useCase: 'UC01', end: true },
-  { path: '/response-tasks', label: 'Response Tasks', icon: Bell, roles: [ROLES.RANGER], useCase: 'UC01' },
+  // UC01 — Villager, Liaison Officer, Park Manager (approvals), Ranger
+  { path: '/conflicts/report', label: 'Report Conflict', icon: MessageSquareWarning, roles: [ROLES.VILLAGER], useCase: 'UC01', ready: true },
+  { path: '/conflicts/mine', label: 'My Conflict Reports', icon: ListChecks, roles: [ROLES.VILLAGER], useCase: 'UC01', ready: true },
+  { path: '/conflicts', label: 'Conflict Queue', icon: MessageSquareWarning, roles: [ROLES.LIAISON_OFFICER], useCase: 'UC01', ready: true, end: true },
+  { path: '/conflicts/approvals', label: 'Conflict Approvals', icon: ClipboardCheck, roles: [ROLES.PARK_MANAGER], useCase: 'UC01', ready: true },
+  { path: '/response-tasks', label: 'Response Tasks', icon: Bell, roles: [ROLES.RANGER], useCase: 'UC01', ready: true },
 
   // UC02 — Data Analyst, Park Manager (receives shared reports)
   { path: '/analytics', label: 'Analysis', icon: BarChart3, roles: [ROLES.DATA_ANALYST], useCase: 'UC02' },
