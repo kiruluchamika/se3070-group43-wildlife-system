@@ -44,8 +44,9 @@ function createAlertService({ alertRepository, clock = () => new Date() }) {
 
     findById: requireAlert,
 
-    raise(data) {
-      return alertRepository.create({ ...data, status: 'active' })
+    /** `session` lets another module raise the alert inside its own transaction (UC01 escalation). */
+    raise(data, { session } = {}) {
+      return alertRepository.create({ ...data, status: 'active' }, { session })
     },
 
     async acknowledge(alertId, userId) {

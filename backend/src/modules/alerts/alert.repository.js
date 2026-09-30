@@ -11,8 +11,8 @@ function createAlertRepository(Alert) {
       return Alert.findById(id).session(session ?? null).lean()
     },
 
-    async create(data) {
-      const alert = await Alert.create(data)
+    async create(data, { session } = {}) {
+      const [alert] = await Alert.create([data], { session: session ?? null })
       return alert.toObject()
     },
 

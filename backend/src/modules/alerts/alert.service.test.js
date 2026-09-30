@@ -114,7 +114,15 @@ describe('alertService dispatch lifecycle', () => {
 
     await alertService.raise({ title: 'Snare Detected', severity: 'high', status: 'resolved' })
 
-    expect(alertRepository.create).toHaveBeenCalledWith({ title: 'Snare Detected', severity: 'high', status: 'active' })
+    expect(alertRepository.create).toHaveBeenCalledWith({ title: 'Snare Detected', severity: 'high', status: 'active' }, { session: undefined })
+  })
+
+  it('raises an alert inside the caller transaction when given a session', async () => {
+    const { alertService, alertRepository } = setup()
+
+    await alertService.raise({ title: 'Escalated conflict', severity: 'high' }, { session: 'tx' })
+
+    expect(alertRepository.create).toHaveBeenCalledWith({ title: 'Escalated conflict', severity: 'high', status: 'active' }, { session: 'tx' })
   })
 
   it('finds an alert or reports it missing', async () => {
