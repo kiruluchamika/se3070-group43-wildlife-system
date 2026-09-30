@@ -59,6 +59,32 @@ See [design/UC04-patrol-management.md](design/UC04-patrol-management.md) for the
 | POST | `/api/patrol/emergency-dispatches` | park-manager | `{ alertId, teamId?, notes? }` | 201 `{ dispatch, assignment, team, alert, diverted }`. 409 `NO_TEAM_AVAILABLE`, 422 `ALERT_NOT_ELIGIBLE` |
 | GET | `/api/patrol/decisions?parkId=` | park-manager | — | Allocation history, newest first |
 
-- **UC01 Conflict response (WITTAHACHCHI D.K.G):** *to be added*
+### UC01 Conflict response (WITTAHACHCHI D.K.G)
+
+See [design/UC01-conflict-response.md](design/UC01-conflict-response.md) for the rules. Officers and managers with a home park only see that park (`OUTSIDE_ASSIGNED_PARK`); villagers only their own reports (`NOT_REPORT_OWNER`); rangers only their team's tasks (`NOT_TEAM_MEMBER`).
+
+| Method | Path | Roles | Body / query | Result |
+|---|---|---|---|---|
+| POST | `/api/conflicts` | villager | `{ parkId, conflictType, village, landmark?, occurredAt, description, contactName, contactPhone, location?, immediateDanger?, damage?, evidence?[] }` | 201 `{ report }` with `reference`, `suggestedPriority`, `locationAdequate`. 400 when crop/property damage lacks damage fields |
+| GET | `/api/conflicts/mine` | villager | — | `{ reports }` (photo data left out) |
+| PATCH | `/api/conflicts/:id/information` | villager (owner) | `{ response, landmark?, location? }` | A3 reply. 409 `INFORMATION_NOT_REQUESTED` |
+| GET | `/api/conflicts/:id` | villager (owner), liaison-officer, park-manager, ranger (assigned team) | — | `{ report, tasks, actions, suggestedReview }` |
+| GET | `/api/conflicts?view=new|pending-information|active|review|closed|all&parkId=` | liaison-officer | — | `{ park, view, reports, counts }` |
+| PATCH | `/api/conflicts/:id/validation` | liaison-officer | `{ decision: valid|invalid, priority?, notes? }` | 422 `LOCATION_INADEQUATE`, 409 `INVALID_TRANSITION` / `CONCURRENT_UPDATE` |
+| PATCH | `/api/conflicts/:id/information-request` | liaison-officer | `{ message }` | A3 |
+| GET | `/api/conflicts/:id/duplicates` | liaison-officer | — | `{ candidates: [{ report, match: { rule, distanceKm } }] }` |
+| PATCH | `/api/conflicts/:id/duplicate` | liaison-officer | `{ primaryReportId, notes? }` | A4. 422 `SELF_LINK`, `PARK_MISMATCH`, `PRIMARY_CLOSED` |
+| GET | `/api/conflicts/:id/teams` | liaison-officer | — | `{ route, available[], busy[], recommended }` with `distanceKm` / `etaMinutes` |
+| POST | `/api/conflicts/:id/deployments` | liaison-officer | `{ teamId, instructions?, additionalResources? }` | 201 `{ task, route: direct|approval|emergency }`. 409 `TEAM_NOT_AVAILABLE`, `TASK_EXISTS`, `REPORT_NOT_DEPLOYABLE` |
+| PATCH | `/api/conflicts/:id/escalation` | liaison-officer | `{ reason }` | A5. Raises a UC04 alert (`source: conflict-report`) |
+| PATCH | `/api/conflicts/:id/review` | liaison-officer | `{ result: resolved|monitoring|escalated, notes?, followUpAt? }` | 409 `REVIEW_NOT_READY`, 422 `FOLLOW_UP_IN_PAST` |
+| POST | `/api/conflicts/:id/contact-retry` | liaison-officer | — | E3 `{ reached, attempts, report }` |
+| POST | `/api/conflicts/:id/alternative-contact` | liaison-officer | `{ method, contactedPerson?, notes }` | E2 |
+| GET | `/api/response-tasks/approvals?parkId=` | park-manager | — | `{ tasks }` awaiting approval |
+| PATCH | `/api/response-tasks/:id/approval` | park-manager | `{ decision: approve|reject, teamId?, notes? }` | Reject needs `notes`. 409 `APPROVAL_ALREADY_DECIDED`, `TEAM_NOT_AVAILABLE` |
+| GET | `/api/response-tasks/mine` | ranger | — | `{ team, tasks }`, each task with its `actions` |
+| PATCH | `/api/response-tasks/:id/acknowledge` | ranger (team member) | — | Repeating is harmless |
+| POST | `/api/response-tasks/:id/actions` | ranger (team member) | `{ clientUpdateId, type, note?, location?, recordedAt, recordedOffline? }` | 201 new, 200 `{ duplicate: true }` for a retried id. 409 `TASK_CLOSED`, `CLIENT_ID_REUSED` |
+| PATCH | `/api/response-tasks/:id/complete` | ranger (team member) | `{ clientUpdateId, outcome, notes?, completedAt }` | Frees the team; idempotent per `clientUpdateId`. 409 `TASK_ALREADY_COMPLETED` |
 - **UC02 Analysis and reports (JALATHGE C.A.J):** *to be added*
 - **UC03 Incident reporting (KALMADU H L G):** *to be added*
