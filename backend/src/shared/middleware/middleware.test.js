@@ -147,6 +147,16 @@ describe('errorHandler', () => {
     expect(response.json.mock.calls[0][0].code).toBe('INVALID_JSON')
   })
 
+  it('reports oversized bodies as 413 instead of a server error', () => {
+    const response = createResponse()
+
+    errorHandler({ type: 'entity.too.large' }, {}, response)
+
+    expect(response.status).toHaveBeenCalledWith(413)
+    expect(response.json.mock.calls[0][0].code).toBe('PAYLOAD_TOO_LARGE')
+    expect(logger.error).not.toHaveBeenCalled()
+  })
+
   it('reports invalid database identifiers as 400', () => {
     const response = createResponse()
 

@@ -36,6 +36,8 @@ function loadConfig(env = process.env) {
     jwtSecret: env.JWT_SECRET || 'development-only-secret',
     jwtExpiresIn: env.JWT_EXPIRES_IN || '8h',
     demoPassword: env.DEMO_PASSWORD || 'WildGuard@2026',
+    // UC01 SMS fallback: "simulated" logs messages; "unavailable" makes every SMS fail (E2/E3 demo).
+    smsGatewayMode: env.SMS_GATEWAY_MODE || 'simulated',
     serveFrontend: env.SERVE_FRONTEND === 'true',
     frontendDist: env.FRONTEND_DIST_PATH || DEFAULT_FRONTEND_DIST
   })

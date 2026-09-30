@@ -28,6 +28,13 @@ const PAGES = {
   '/patrol/teams': lazy(() => import('./features/patrol/pages/RangerTeamsPage')),
   '/patrol/history': lazy(() => import('./features/patrol/pages/AllocationHistoryPage')),
   '/my-assignment': lazy(() => import('./features/patrol/pages/MyAssignmentPage')),
+
+  // UC01 — Respond to Human–Elephant Conflict (WITTAHACHCHI D.K.G)
+  '/conflicts/report': lazy(() => import('./features/conflicts/pages/ReportConflictPage')),
+  '/conflicts/mine': lazy(() => import('./features/conflicts/pages/MyConflictReportsPage')),
+  '/conflicts': lazy(() => import('./features/conflicts/pages/ConflictQueuePage')),
+  '/conflicts/approvals': lazy(() => import('./features/conflicts/pages/DeploymentApprovalsPage')),
+  '/response-tasks': lazy(() => import('./features/conflicts/pages/ResponseTasksPage')),
 }
 
 function ThemedToaster() {

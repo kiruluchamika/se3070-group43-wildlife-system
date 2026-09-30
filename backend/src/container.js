@@ -23,6 +23,16 @@ const { createAllocationService } = require('./modules/patrol/allocation.service
 const { createEmergencyDispatchService } = require('./modules/patrol/emergency-dispatch.service')
 const { createPatrolController } = require('./modules/patrol/patrol.controller')
 const { createPatrolRouter } = require('./modules/patrol/patrol.routes')
+const { createSmsGateway } = require('./modules/notifications/sms-gateway')
+const { createNotificationDispatcher } = require('./modules/notifications/notification-dispatcher')
+const { createConflictRepository } = require('./modules/conflicts/conflict.repository')
+const { createConflictAccess } = require('./modules/conflicts/conflict-access')
+const { createConflictNotifier } = require('./modules/conflicts/conflict-notifier')
+const { createConflictWorkflow } = require('./modules/conflicts/conflict-workflow')
+const { createConflictService } = require('./modules/conflicts/conflict.service')
+const { createResponseService } = require('./modules/conflicts/response.service')
+const { createConflictController } = require('./modules/conflicts/conflict.controller')
+const { createConflictRouter, createResponseTaskRouter } = require('./modules/conflicts/conflict.routes')
 
 /** Loads the Mongoose models only when real repositories are needed. */
 function loadModels() {
@@ -36,7 +46,10 @@ function loadModels() {
     PatrolRecord: require('./modules/patrol/patrol-record.model'),
     PatrolAssignment: require('./modules/patrol/patrol-assignment.model'),
     AllocationDecision: require('./modules/patrol/allocation-decision.model'),
-    EmergencyDispatch: require('./modules/patrol/emergency-dispatch.model')
+    EmergencyDispatch: require('./modules/patrol/emergency-dispatch.model'),
+    ConflictReport: require('./modules/conflicts/conflict-report.model'),
+    ResponseTask: require('./modules/conflicts/response-task.model'),
+    ResponseAction: require('./modules/conflicts/response-action.model')
   }
 }
 
@@ -47,7 +60,8 @@ function createRepositories(models) {
     teamRepository: createTeamRepository(models.RangerTeam),
     alertRepository: createAlertRepository(models.Alert),
     notificationRepository: createNotificationRepository(models.Notification),
-    patrolRepository: createPatrolRepository(models)
+    patrolRepository: createPatrolRepository(models),
+    conflictRepository: createConflictRepository(models)
   }
 }
 
@@ -63,6 +77,7 @@ function createContainer({
   repositories = createRepositories(loadModels()),
   transactionRunner,
   passwordHasher = createPasswordHasher(),
+  smsGateway = createSmsGateway({ mode: config.smsGatewayMode }),
   clock = () => new Date()
 }) {
   const tokenService = createTokenService({ secret: config.jwtSecret, expiresIn: config.jwtExpiresIn })
@@ -90,6 +105,36 @@ function createContainer({
   services.allocationService = createAllocationService({ ...patrolDependencies, coverageService: services.coverageService })
   services.emergencyDispatchService = createEmergencyDispatchService({ ...patrolDependencies, coverageService: services.coverageService })
 
+  // UC01 — Respond to Human–Elephant Conflict (WITTAHACHCHI D.K.G)
+  services.notificationDispatcher = createNotificationDispatcher({ notificationService: services.notificationService, smsGateway })
+  const conflictAccess = createConflictAccess({ userRepository: repositories.userRepository })
+  const conflictDependencies = {
+    transactionRunner,
+    clock,
+    access: conflictAccess,
+    conflictRepository: repositories.conflictRepository,
+    parkRepository: repositories.parkRepository,
+    teamRepository: repositories.teamRepository,
+    teamService: services.teamService,
+    alertService: services.alertService,
+    workflow: createConflictWorkflow({
+      conflictRepository: repositories.conflictRepository,
+      parkRepository: repositories.parkRepository,
+      alertService: services.alertService,
+      clock
+    }),
+    notifier: createConflictNotifier({
+      userRepository: repositories.userRepository,
+      notificationService: services.notificationService,
+      notificationDispatcher: services.notificationDispatcher,
+      conflictRepository: repositories.conflictRepository,
+      clock
+    })
+  }
+  services.conflictService = createConflictService(conflictDependencies)
+  services.responseService = createResponseService(conflictDependencies)
+  const conflictController = createConflictController({ ...services, conflictAccess })
+
   const routes = [
     { path: '/api/auth', router: createAuthRouter({ authController: createAuthController(services), authenticate }) },
     { path: '/api/parks', router: createParkRouter({ parkRepository: repositories.parkRepository, authenticate }) },
@@ -99,7 +144,9 @@ function createContainer({
       path: '/api/notifications',
       router: createNotificationRouter({ notificationService: services.notificationService, authenticate })
     },
-    { path: '/api/patrol', router: createPatrolRouter({ patrolController: createPatrolController(services), authenticate }) }
+    { path: '/api/patrol', router: createPatrolRouter({ patrolController: createPatrolController(services), authenticate }) },
+    { path: '/api/conflicts', router: createConflictRouter({ conflictController, authenticate }) },
+    { path: '/api/response-tasks', router: createResponseTaskRouter({ conflictController, authenticate }) }
   ]
 
   return { repositories, services, routes, tokenService }

@@ -7,6 +7,7 @@ const { loadModels } = require('../container')
 const { createPasswordHasher } = require('../shared/security/password-hasher')
 const { seedFoundation } = require('./foundation.seed')
 const { seedPatrolData } = require('./patrol.seed')
+const { seedConflictData } = require('./conflict.seed')
 
 /**
  * Resets the demonstration dataset in MONGODB_DB_NAME.
@@ -26,11 +27,13 @@ async function main() {
   const passwordHash = await createPasswordHasher().hash(config.demoPassword)
   const foundation = await seedFoundation({ models, passwordHash, now })
   const patrol = await seedPatrolData({ models, now, foundation })
+  const conflicts = await seedConflictData({ models, now, foundation })
 
   console.log(`Seeded database "${config.mongoDbName}":`)
   console.log(`  parks: ${Object.keys(foundation.parks).length}, teams: ${Object.keys(foundation.teams).length}`)
   console.log(`  users: ${foundation.users.length}, alerts: ${foundation.alerts.length}`)
   console.log(`  patrol records: ${patrol.records.length}, active assignments: ${patrol.assignments.length}`)
+  console.log(`  conflict reports: ${conflicts.reports.length}, completed response tasks: ${conflicts.tasks.length}`)
   console.log(`Demo accounts use the password from DEMO_PASSWORD (default: WildGuard@2026).`)
 }
 

@@ -11,6 +11,13 @@ function createUserRepository(User) {
       return User.findById(id).lean()
     },
 
+    /** Users with `role`; with `park`, only staff of that park plus staff who cover every park (no park set). */
+    listByRole(role, { park } = {}) {
+      const filter = { role }
+      if (park) filter.$or = [{ park }, { park: null }]
+      return User.find(filter).select('name email role park phone').lean()
+    },
+
     findByIds(ids) {
       return User.find({ _id: { $in: ids } }).select('name email role team').lean()
     },

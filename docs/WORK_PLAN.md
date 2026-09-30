@@ -126,7 +126,10 @@ Workflow:
 | UC04 scenario (p. 45) | The supporting actor (Ranger) never takes part | Notify the assigned team; the ranger acknowledges the assignment | HETTIGE K.C. |
 | UC04 sequence diagram (p. 47) | The update and the "record decision" are two separate calls from the UI, which breaks E3 | One service call inside a MongoDB transaction | HETTIGE K.C. |
 | UC03 — *add rows* | | | KALMADU H L G |
-| UC01 — *add rows* | | | WITTAHACHCHI D.K.G |
+| UC01 statuses (pp. 7–23) | Legal status changes are never defined | Explicit transition table with a history entry per change | WITTAHACHCHI D.K.G |
+| UC01 main step 3 | Critical reports would wait for approval; team availability is not shared with UC04 | Route per priority (direct / approval / emergency dispatch) and the shared `teamService.commitTeam` inside one transaction | WITTAHACHCHI D.K.G |
+| UC01 A3, A4 | "Inadequate location" and "duplicate" are undefined | GPS or village + landmark; duplicates = same park, 12 h, 2 km or same village; one open task per report | WITTAHACHCHI D.K.G |
+| UC01 E1–E4 | Notification failure could block the business flow; E4 implies a task can arrive offline | Fallback adapter (in-app → simulated SMS) after commit with recorded attempts; E4 reordered: received task → local update → reconnection → server confirmation | WITTAHACHCHI D.K.G |
 | UC02 — *add rows* | | | JALATHGE C.A.J |
 | Whole system (p. 4) | Group 41 plans a native mobile app plus web dashboards | One responsive PWA with offline incident storage. See `docs/DECISIONS.md` ADR-001 | Everyone |
 
