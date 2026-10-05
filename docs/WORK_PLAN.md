@@ -12,7 +12,7 @@ Each member builds the frontend, the backend and the unit tests for their own us
 |---|---|---|---|---|
 | **HETTIGE K.C.** (leader) | IT23700956 | **UC04 — Monitor Patrol Coverage and Allocate Resources** | 44–50 | `feature/patrol-management` |
 | WITTAHACHCHI D.K.G | IT23717404 | UC01 — Respond to Human–Elephant Conflict | 7–23 | `feature/conflict-response` |
-| KALMADU H L G | IT23701014 | UC03 — Report Wildlife and Poaching Incident (offline PWA) | 36–43 | `feature/incident-reporting` |
+| KALMADU H L G | IT23701014 | [UC03 — Report Wildlife and Poaching Incident (offline PWA)](design/UC03-incident-reporting.md) | 36–43 | `feature/incident-reporting` |
 | JALATHGE C.A.J | IT23751446 | UC02 — Analyze Conservation Data and Generate Reports | 24–35 | `feature/conservation-reports` |
 
 **Shared work that is not graded.** The spec excludes login, logout and privilege granting from grading.
