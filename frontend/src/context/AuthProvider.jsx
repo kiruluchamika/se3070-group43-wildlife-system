@@ -4,32 +4,69 @@ import { api, onUnauthorized } from '../lib/api'
 import { sessionStore } from '../lib/storage'
 import { AuthContext } from './auth-context'
 
-const initialStatus = () => (sessionStore.getToken() ? 'loading' : 'anonymous')
+function initialState() {
+  const token = sessionStore.getToken()
+  const cachedUser = sessionStore.getUser()
+  if (token && cachedUser) return { status: 'authenticated', user: cachedUser, sessionSource: 'cache' }
+  return { status: token ? 'loading' : 'anonymous', user: null, sessionSource: null }
+}
 
 export function AuthProvider({ children }) {
-  const [state, setState] = useState(() => ({ status: initialStatus(), user: null }))
+  const [state, setState] = useState(initialState)
 
   const logout = useCallback(() => {
     sessionStore.clear()
-    setState({ status: 'anonymous', user: null })
+    setState({ status: 'anonymous', user: null, sessionSource: null })
   }, [])
 
-  // Restore the session from the stored token on first load.
+  // A cached public profile lets an already signed-in ranger reopen the PWA
+  // offline. It only controls the UI; every server route still verifies the
+  // JWT and role. Revalidate on first load and whenever connectivity returns.
   useEffect(() => {
     if (!sessionStore.getToken()) return undefined
-    const controller = new AbortController()
+    let active = true
+    let controller
+    let verifying = false
 
-    api
-      .get('/auth/me', { signal: controller.signal })
-      .then(({ user }) => setState({ status: 'authenticated', user }))
-      .catch((error) => {
-        if (error.name === 'AbortError') return
-        sessionStore.clear()
-        setState({ status: 'anonymous', user: null })
-      })
+    const verifySession = async () => {
+      if (!active || verifying || !sessionStore.getToken()) return
+      verifying = true
+      controller?.abort()
+      controller = new AbortController()
+      try {
+        const { user } = await api.get('/auth/me', { signal: controller.signal })
+        if (!active) return
+        sessionStore.setUser(user)
+        setState({ status: 'authenticated', user, sessionSource: 'server' })
+      } catch (error) {
+        if (!active || error.name === 'AbortError') return
 
-    return () => controller.abort()
-  }, [])
+        // Only an authoritative authentication failure removes the session.
+        // Network/server failures retain the last safe public user profile.
+        if (error.status === 401 || error.code === 'SESSION_EXPIRED' || error.code === 'USER_NOT_FOUND') {
+          logout()
+          return
+        }
+
+        const cachedUser = sessionStore.getUser()
+        setState(
+          cachedUser
+            ? { status: 'authenticated', user: cachedUser, sessionSource: 'cache' }
+            : { status: 'anonymous', user: null, sessionSource: null },
+        )
+      } finally {
+        verifying = false
+      }
+    }
+
+    verifySession()
+    window.addEventListener('online', verifySession)
+    return () => {
+      active = false
+      controller?.abort()
+      window.removeEventListener('online', verifySession)
+    }
+  }, [logout])
 
   useEffect(
     () =>
@@ -42,7 +79,8 @@ export function AuthProvider({ children }) {
 
   const startSession = useCallback(({ token, user }) => {
     sessionStore.setToken(token)
-    setState({ status: 'authenticated', user })
+    sessionStore.setUser(user)
+    setState({ status: 'authenticated', user, sessionSource: 'server' })
     return user
   }, [])
 

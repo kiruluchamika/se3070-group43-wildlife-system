@@ -56,8 +56,8 @@ export const NAV_ITEMS = [
   { path: '/my-assignment', label: 'My Assignment', icon: ClipboardList, roles: [ROLES.RANGER], useCase: 'UC04', ready: true },
 
   // UC03 — Ranger
-  { path: '/incidents/new', label: 'Report Incident', icon: Siren, roles: [ROLES.RANGER], useCase: 'UC03' },
-  { path: '/incidents/pending', label: 'Pending Reports', icon: UploadCloud, roles: [ROLES.RANGER], useCase: 'UC03' },
+  { path: '/incidents/new', label: 'Report Incident', icon: Siren, roles: [ROLES.RANGER], useCase: 'UC03', ready: true },
+  { path: '/incidents/pending', label: 'Incident Reports', icon: UploadCloud, roles: [ROLES.RANGER], useCase: 'UC03', ready: true },
 
   // UC01 — Villager, Liaison Officer, Park Manager (approvals), Ranger
   { path: '/conflicts/report', label: 'Report Conflict', icon: MessageSquareWarning, roles: [ROLES.VILLAGER], useCase: 'UC01', ready: true },

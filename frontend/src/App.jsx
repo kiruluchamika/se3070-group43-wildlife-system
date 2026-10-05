@@ -4,6 +4,7 @@ import { BrowserRouter, Route, Routes } from 'react-router'
 import { Toaster } from 'sonner'
 import { AppShell } from './components/layout/AppShell'
 import { FullScreenLoader } from './components/layout/FullScreenLoader'
+import { PwaUpdatePrompt } from './components/layout/PwaUpdatePrompt'
 import { ProtectedRoute, PublicOnlyRoute, RoleRoute } from './components/layout/RouteGuards'
 import { AuthProvider } from './context/AuthProvider'
 import { useTheme } from './context/theme-context'
@@ -35,6 +36,10 @@ const PAGES = {
   '/conflicts': lazy(() => import('./features/conflicts/pages/ConflictQueuePage')),
   '/conflicts/approvals': lazy(() => import('./features/conflicts/pages/DeploymentApprovalsPage')),
   '/response-tasks': lazy(() => import('./features/conflicts/pages/ResponseTasksPage')),
+
+  // UC03 — Report Wildlife and Poaching Incident (KALMADU H L G)
+  '/incidents/new': lazy(() => import('./features/incidents/pages/NewIncidentPage')),
+  '/incidents/pending': lazy(() => import('./features/incidents/pages/PendingIncidentsPage')),
 }
 
 function ThemedToaster() {
@@ -77,6 +82,7 @@ export default function App() {
             </Suspense>
           </BrowserRouter>
           <ThemedToaster />
+          <PwaUpdatePrompt />
         </AuthProvider>
       </MotionConfig>
     </ThemeProvider>
