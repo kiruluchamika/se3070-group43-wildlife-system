@@ -1,3 +1,5 @@
+const { createUserService } = require('./modules/users/user.service')
+const { createUserRouter } = require('./modules/users/user.routes')
 const { createTokenService } = require('./shared/security/token-service')
 const { createPasswordHasher } = require('./shared/security/password-hasher')
 const { createAuthenticate } = require('./shared/middleware/authenticate')
@@ -97,9 +99,10 @@ function createContainer({
   clock = () => new Date()
 }) {
   const tokenService = createTokenService({ secret: config.jwtSecret, expiresIn: config.jwtExpiresIn })
-  const authenticate = createAuthenticate({ tokenService })
+  const authenticate = createAuthenticate({ tokenService, userRepository: repositories.userRepository })
 
   const services = {
+    userService: createUserService({ ...repositories, passwordHasher }),
     analyticsService: createAnalyticsService({ ...repositories, clock }),
     authService: createAuthService({ userRepository: repositories.userRepository, tokenService, passwordHasher }),
     teamService: createTeamService({ teamRepository: repositories.teamRepository }),
@@ -164,6 +167,7 @@ function createContainer({
   const incidentController = createIncidentController(services)
 
   const routes = [
+    { path: '/api/users', router: createUserRouter({ userService: services.userService, authenticate }) },
     { path: '/api/reports', router: createReportRouter({ reportService: services.reportService, authenticate }) },
     { path: '/api/analytics', router: createAnalyticsRouter({ analyticsService: services.analyticsService, authenticate }) },
     { path: '/api/auth', router: createAuthRouter({ authController: createAuthController(services), authenticate }) },

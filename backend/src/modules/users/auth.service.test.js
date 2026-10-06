@@ -45,7 +45,7 @@ describe('authService.register', () => {
     })
     expect(session).toEqual({
       token: 'signed-token',
-      user: { id: 'new-user-id', name: 'Sunil Bandara', email: 'sunil@example.com', role: 'villager', phone: null, park: null, team: null }
+      user: { id: 'new-user-id', name: 'Sunil Bandara', email: 'sunil@example.com', role: 'villager', isActive: true, phone: null, park: null, team: null }
     })
   })
 

@@ -10,12 +10,13 @@
     "dev": "nodemon server.js",
     "start": "node server.js",
     "seed": "node src/seed/seed.js",
+    "user:admin": "node src/modules/users/bootstrap-admin.js",
+    "seed:analytics": "node src/seed/analytics-sample.seed.js",
+    "pdf:install": "playwright install chromium",
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
-    "pdf:install": "playwright install chromium",
-    "seed:analytics": "node src/seed/analytics-sample.seed.js"
+    "test:coverage": "vitest run --coverage"
   },
   "keywords": [],
   "author": "",

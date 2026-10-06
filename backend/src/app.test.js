@@ -57,7 +57,11 @@ function buildApp(configOverrides = {}) {
   const logger = { error: vi.fn() }
   const app = createApp({ config, routes: container.routes, logger })
 
-  const tokenFor = (role) => container.tokenService.sign({ _id: nextId(), role })
+  const tokenFor = (role) => {
+    const user = { _id: nextId(), role }
+    repositories.users.push(user)
+    return container.tokenService.sign(user)
+  }
   return { app, repositories, tokenFor, logger }
 }
 
