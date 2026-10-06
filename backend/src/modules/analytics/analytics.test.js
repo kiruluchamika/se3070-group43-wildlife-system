@@ -131,6 +131,25 @@ describe('UC02 authenticated retrieval HTTP flow', () => {
   })
 })
 
+it('rejects a removed park before retrieving any analysis records', async () => {
+  const { app, token, parkRepository, analyticsRepository } = setup()
+  parkRepository.findParkById.mockResolvedValue(null)
+  const result = await request(app).get('/api/analytics').query(filters).set('Authorization', token())
+  expect(result.status).toBe(404)
+  expect(result.body.code).toBe('PARK_NOT_FOUND')
+  expect(analyticsRepository.retrieve).not.toHaveBeenCalled()
+  expect(parkRepository.listZones).not.toHaveBeenCalled()
+})
+
+it('keeps missing patrol sync state and GPS freshness unknown without inventing a warning', () => {
+  const result = inspectFreshness({ alerts: [{ _id: 'gps', source: 'gps-collar' }], patrolRecords: [{ _id: 'legacy' }] })
+  expect(result).toMatchObject({ status: 'unknown', requiresConfirmation: false, affectedSources: [] })
+  expect(result.sources).toEqual([
+    expect.objectContaining({ label: 'GPS Collar gps', status: 'unknown', lastSuccessfulSyncAt: null }),
+    expect.objectContaining({ recordId: 'legacy', status: 'unknown', lastSuccessfulSyncAt: null }),
+  ])
+})
+
 it('scopes species options to permitted parks and rejects unauthorized species retrieval', async () => {
   const { app, token, analyticsRepository } = setup()
   analyticsRepository.speciesOptions.mockResolvedValue([{ id: 'test species', label: 'test species' }])

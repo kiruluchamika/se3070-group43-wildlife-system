@@ -99,3 +99,33 @@ it('keeps form values and shows server field validation on failure', async () =>
   expect(props.onSaved).not.toHaveBeenCalled()
 })
 
+it('prevents duplicate creation while saving and allows a retry after a server failure', async () => {
+  let reject
+  h.post.mockReturnValueOnce(new Promise((_resolve, fail) => { reject = fail }))
+  const props = { parks: [], currentUserId: 'admin', onClose: vi.fn(), onSaved: vi.fn() }
+  const submit = () => find(render(Editor, props), (node) => node.type === 'form').props.onSubmit({ preventDefault() {} })
+  const pending = submit()
+  await submit()
+  expect(h.post).toHaveBeenCalledTimes(1)
+  expect(render(Editor, props).props.dismissible).toBe(false)
+  expect(button(render(Editor, props), 'Cancel').props.disabled).toBe(true)
+  reject(new Error('private storage failure'))
+  await pending
+  expect(props.onSaved).not.toHaveBeenCalled()
+  expect(button(render(Editor, props), 'Unable to save the user. Please retry.')).toBeDefined()
+  h.post.mockResolvedValueOnce({ user })
+  await submit()
+  expect(h.post).toHaveBeenCalledTimes(2)
+  expect(props.onSaved).toHaveBeenCalledOnce()
+})
+
+it('locks self role and team assignments while leaving ordinary profile editing available', () => {
+  const props = { user: { ...user, id: 'admin' }, currentUserId: 'admin', parks: [] }
+  const field = (tree, label) => find(tree, (node) => node.props?.label === label).props.children({})
+  expect(field(render(Editor, props), 'Role').props.disabled).toBe(true)
+  expect(field(render(Editor, props), 'Name').props.disabled).toBe(false)
+  const teamTree = render(Editor, { ...props, user: { ...user, team: 'team' } })
+  expect(field(teamTree, 'Role').props.disabled).toBe(true)
+  expect(field(teamTree, 'Park').props.disabled).toBe(true)
+  expect(find(teamTree, (node) => node.props?.label === 'Initial password')).toBeUndefined()
+})

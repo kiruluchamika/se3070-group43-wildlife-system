@@ -56,6 +56,34 @@ async function retrieve(requiresConfirmation) {
   await Promise.resolve()
   return dataset
 }
+it('blocks reversed dates and unavailable park selections before retrieval', () => {
+  harness.slots[0] = { ...filters, endDate: '2026-09-30' }
+  find(render(), 'form').props.onSubmit({ preventDefault() {} })
+  expect(harness.get).not.toHaveBeenCalled()
+  expect(harness.slots[1]).toBe('End date must be on or after the start date.')
+  harness.slots[0] = { ...filters, parkId: 'removed-park' }
+  find(render(), 'form').props.onSubmit({ preventDefault() {} })
+  expect(harness.get).not.toHaveBeenCalled()
+})
+
+it('keeps species and dates after a retrieval failure and retries without exposing server details', async () => {
+  const selected = { ...filters, species: 'test species' }
+  harness.slots[0] = selected
+  harness.get.mockRejectedValueOnce({ status: 500, message: 'private database detail' })
+  find(render(), 'form').props.onSubmit({ preventDefault() {} })
+  await Promise.resolve()
+  const { ErrorState } = await import('../../../../frontend/src/components/ui/Feedback.jsx')
+  const error = find(render(), ErrorState)
+  expect(error.props.message).toBe('Please try again. Your selected filters have been kept.')
+  expect(harness.slots[0]).toEqual(selected)
+  const dataset = { filters: selected, freshness: { requiresConfirmation: false } }
+  harness.get.mockResolvedValueOnce(dataset)
+  await error.props.onRetry()
+  expect(harness.get).toHaveBeenCalledTimes(2)
+  expect(harness.get.mock.calls[1][0]).toBe(harness.get.mock.calls[0][0])
+  expect(render().props.dataset).toBe(dataset)
+})
+
 it('proceeds directly to Results without a freshness dialog for current data', async () => {
   const dataset = await retrieve(false)
   const page = render()

@@ -85,6 +85,43 @@ describe.skipIf(!hasTestDatabase)('administrator user management and session enf
     await request(app).patch(`/api/users/${user.id}`).set('Authorization', token).send({ name: user.name, email: user.email, role: 'ranger', park: null })
     expect((await request(app).get('/api/parks').set('Authorization', old)).status).toBe(401)
   })
+  it('treats repeated status requests as idempotent without revoking a newly signed-in session', async () => {
+    const created = (await request(app).post('/api/users').set('Authorization', token).send(body())).body.user
+    const status = (isActive) => request(app).patch(`/api/users/${created.id}/status`).set('Authorization', token).send({ isActive })
+    await status(false)
+    await status(false)
+    expect((await db.models.User.findById(created.id).select('+sessionVersion')).sessionVersion).toBe(1)
+    await status(true)
+    const login = await request(app).post('/api/auth/login').send({ email: body().email, password: body().password })
+    expect((await status(true)).status).toBe(200)
+    expect((await db.models.User.findById(created.id).select('+sessionVersion')).sessionVersion).toBe(2)
+    expect((await request(app).get('/api/auth/me').set('Authorization', `Bearer ${login.body.token}`)).status).toBe(200)
+  })
+  it('preserves an omitted park on profile edits but revokes sessions when the park changes', async () => {
+    const park = await db.models.Park.create({ code: 'EDIT', name: 'Assigned park' })
+    const user = await db.models.User.create({ name: 'Analyst', email: 'analyst@example.com', passwordHash: 'x', role: 'data-analyst', park: park.id })
+    const old = `Bearer ${container.tokenService.sign(user)}`
+    const edit = { name: 'Updated analyst', email: user.email, role: user.role }
+    const result = await request(app).patch(`/api/users/${user.id}`).set('Authorization', token).send(edit)
+    expect(result.status).toBe(200)
+    expect(result.body.user.park).toBe(park.id)
+    expect((await request(app).get('/api/auth/me').set('Authorization', old)).status).toBe(200)
+    expect((await request(app).patch(`/api/users/${user.id}`).set('Authorization', token).send({ ...edit, park: null })).status).toBe(200)
+    expect((await request(app).get('/api/auth/me').set('Authorization', old)).status).toBe(401)
+  })
+  it('rejects missing targets, malformed status and duplicate-email edits without changing accounts', async () => {
+    const created = (await request(app).post('/api/users').set('Authorization', token).send(body())).body.user
+    const edit = { name: created.name, email: admin.email, role: created.role }
+    expect((await request(app).patch(`/api/users/${created.id}`).set('Authorization', token).send(edit)).status).toBe(409)
+    expect((await db.models.User.findById(created.id)).email).toBe(body().email)
+    for (const [path, input] of [['', edit], ['/status', { isActive: false }]]) {
+      const missing = await request(app).patch(`/api/users/111111111111111111111111${path}`).set('Authorization', token).send(input)
+      expect(missing.status).toBe(404)
+      expect(missing.body.code).toBe('USER_NOT_FOUND')
+    }
+    expect((await request(app).patch(`/api/users/${created.id}/status`).set('Authorization', token).send({ isActive: 'false' })).status).toBe(400)
+    expect((await db.models.User.findById(created.id)).isActive).toBe(true)
+  })
   it('preserves ranger-team assignments when profile changes would conflict', async () => {
     const park = await db.models.Park.create({ code: 'TEST', name: 'Test park' })
     const team = await db.models.RangerTeam.create({ park: park.id, code: 'TEAM', name: 'Existing team' })
