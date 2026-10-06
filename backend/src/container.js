@@ -39,6 +39,10 @@ const { createConflictService } = require('./modules/conflicts/conflict.service'
 const { createResponseService } = require('./modules/conflicts/response.service')
 const { createConflictController } = require('./modules/conflicts/conflict.controller')
 const { createConflictRouter, createResponseTaskRouter } = require('./modules/conflicts/conflict.routes')
+const { createIncidentRepository } = require('./modules/incidents/incident.repository')
+const { createIncidentService } = require('./modules/incidents/incident.service')
+const { createIncidentController } = require('./modules/incidents/incident.controller')
+const { createIncidentRouter } = require('./modules/incidents/incident.routes')
 
 /** Loads the Mongoose models only when real repositories are needed. */
 function loadModels() {
@@ -56,7 +60,9 @@ function loadModels() {
     EmergencyDispatch: require('./modules/patrol/emergency-dispatch.model'),
     ConflictReport: require('./modules/conflicts/conflict-report.model'),
     ResponseTask: require('./modules/conflicts/response-task.model'),
-    ResponseAction: require('./modules/conflicts/response-action.model')
+    ResponseAction: require('./modules/conflicts/response-action.model'),
+    WildlifeIncident: require('./modules/incidents/wildlife-incident.model'),
+    IncidentPhoto: require('./modules/incidents/incident-photo.model')
   }
 }
 
@@ -70,7 +76,8 @@ function createRepositories(models) {
     alertRepository: createAlertRepository(models.Alert),
     notificationRepository: createNotificationRepository(models.Notification),
     patrolRepository: createPatrolRepository(models),
-    conflictRepository: createConflictRepository(models)
+    conflictRepository: createConflictRepository(models),
+    incidentRepository: createIncidentRepository(models)
   }
 }
 
@@ -146,6 +153,16 @@ function createContainer({
   services.responseService = createResponseService(conflictDependencies)
   const conflictController = createConflictController({ ...services, conflictAccess })
 
+  // UC03 — Report Wildlife and Poaching Incident (KALMADU H L G)
+  services.incidentService = createIncidentService({
+    transactionRunner,
+    clock,
+    incidentRepository: repositories.incidentRepository,
+    parkRepository: repositories.parkRepository,
+    alertService: services.alertService
+  })
+  const incidentController = createIncidentController(services)
+
   const routes = [
     { path: '/api/reports', router: createReportRouter({ reportService: services.reportService, authenticate }) },
     { path: '/api/analytics', router: createAnalyticsRouter({ analyticsService: services.analyticsService, authenticate }) },
@@ -159,7 +176,8 @@ function createContainer({
     },
     { path: '/api/patrol', router: createPatrolRouter({ patrolController: createPatrolController(services), authenticate }) },
     { path: '/api/conflicts', router: createConflictRouter({ conflictController, authenticate }) },
-    { path: '/api/response-tasks', router: createResponseTaskRouter({ conflictController, authenticate }) }
+    { path: '/api/response-tasks', router: createResponseTaskRouter({ conflictController, authenticate }) },
+    { path: '/api/incidents', router: createIncidentRouter({ incidentController, authenticate }) }
   ]
 
   return { repositories, services, routes, tokenService }

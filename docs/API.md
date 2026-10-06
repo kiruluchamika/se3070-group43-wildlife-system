@@ -86,6 +86,7 @@ See [design/UC01-conflict-response.md](design/UC01-conflict-response.md) for the
 | PATCH | `/api/response-tasks/:id/acknowledge` | ranger (team member) | — | Repeating is harmless |
 | POST | `/api/response-tasks/:id/actions` | ranger (team member) | `{ clientUpdateId, type, note?, location?, recordedAt, recordedOffline? }` | 201 new, 200 `{ duplicate: true }` for a retried id. 409 `TASK_CLOSED`, `CLIENT_ID_REUSED` |
 | PATCH | `/api/response-tasks/:id/complete` | ranger (team member) | `{ clientUpdateId, outcome, notes?, completedAt }` | Frees the team; idempotent per `clientUpdateId`. 409 `TASK_ALREADY_COMPLETED` |
+
 ### UC02 Analysis retrieval (Stage 2)
 
 | Method | Path | Roles | Query | Result |
@@ -170,4 +171,12 @@ cannot edit/re-analyze reports. Export returns no unrelated user/source document
 does not write to the database, and invokes no server-side PDF process. The browser
 controls PDF saving/cancellation. All report responses use `Cache-Control: no-store`.
 
-- **UC03 Incident reporting (KALMADU H L G):** *to be added*
+### UC03 Incident reporting (KALMADU H L G)
+
+See [design/UC03-incident-reporting.md](design/UC03-incident-reporting.md) for the offline and idempotency rules. All routes are ranger-only. Incident list/detail responses contain photo metadata but never the stored photo data URLs.
+
+| Method | Path | Roles | Body / query | Result |
+|---|---|---|---|---|
+| POST | `/api/incidents` | ranger | `{ clientId, parkId, zoneId?, type, severity?, description, observedAt, deviceCreatedAt, location?, locationNote?, recordedOffline?, photos?[] }` | `201` `{ incident, alert, duplicate: false }`; an identical retry returns `200` with `duplicate: true`. Reusing the client id for different data returns `409 CLIENT_ID_REUSED` |
+| GET | `/api/incidents/mine` | ranger | — | `{ incidents }`, newest observation first |
+| GET | `/api/incidents/:id` | ranger (owner) | — | `{ incident, photos }`; another ranger receives `404 INCIDENT_NOT_FOUND` |

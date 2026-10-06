@@ -90,6 +90,12 @@ The case study describes several external systems. In this prototype:
 - **SMS delivery** is simulated.
 - Zone boundaries are illustrative polygons, not official park boundaries.
 
+## Offline incident reporting (UC03)
+
+Rangers use **Report Incident** to capture the incident type, urgency, time, GPS or a location note, description and up to three compressed photos. The report is written to IndexedDB before any upload is attempted. **Incident Reports** then shows whether it is waiting, sending, needs attention or has been received.
+
+When the app is open and the connection returns, queued reports synchronise automatically; a ranger can also retry manually. Each report keeps one client-generated UUID, and the API's unique index makes retries idempotent. Snare, carcass, illegal-camp, footprint and fire reports raise an operational alert for UC04 in the same MongoDB transaction. The PWA caches the application shell and the minimum public ranger profile after the first online login, allowing a previously authenticated ranger to reopen field screens offline. Reconnection revalidates the server session. The browser does not synchronise reports while it is closed.
+
 ## Project structure
 
 ```
