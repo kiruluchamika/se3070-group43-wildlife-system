@@ -8,7 +8,7 @@ in the frontend for core statistics. Stage 4 adds trends, hotspots and patrol
 effort visualizations from that same dataset. Stages 6–7 add preparation,
 preview and explicit Draft/Finalized saves. Stage 8 adds Draft text editing and
 filter restoration for re-analysis. Stage 9 adds finalized sharing and browser
-print-to-PDF export.
+downloadable PDF export.
 
 ## Stage 4 analysis and visualizations
 
@@ -47,7 +47,7 @@ was added. Individual calculation errors do not hide the other sections.
   inferred. Invalid targets yield unavailable percentages; invalid patrol times
   or zone references are omitted and disclosed. Future time never contributes.
 - Incident type applies only to alerts/conflicts. Park/date context applies to
-  every section. Species remains unsupported. Available pending-sync records
+  every section. Species uses the optional structured incident/alert name. Available pending-sync records
   remain included after the user's existing Continue decision.
 - Buckets, hotspot rows and coverage rows retain `{ source, recordId } references
   for supporting records. Category metadata includes hotspots only when
@@ -100,8 +100,7 @@ introduced. Stage 2 loading and freshness Continue/Cancel behavior is retained.
 - Zones represented = distinct known zone IDs referenced by alerts or patrol
   records. Conflicts have no zone field. Unknown/missing references and unused
   reference zones do not contribute. This is not a hotspot/coverage measure.
-- Context copies the response filters, park and period. Species is labeled
-  unavailable. Returning to filters preserves the form in the parent page.
+- Context copies the response filters, park and period. Species context shows the selected name or All species. Returning to filters preserves the form in the parent page.
 - Empty source arrays show an empty state, even if park zones exist. Patrol-only
   responses explicitly explain that no alerts/conflicts matched. Invalid source
   structures produce a safe error rather than zero or partial counts.
@@ -122,7 +121,7 @@ Findings/recommendations are optional (5,000 characters each); title is required
 for generation (200 characters). Inputs start empty and are never generated.
 Preparation allows reviewing/editing all three fields. The summary preserves
 source semantics and per-zone coverage, without inventing an overall percentage.
-Empty/error sections and unavailable species remain explicitly identified.
+Empty/error sections and the selected species context remain explicitly identified.
 
 Generate Report validates and stores an isolated in-memory handoff containing
 the entered text, context, statistics, visualizations, source references and
@@ -255,28 +254,18 @@ Managers see only explicitly shared Finalized reports, filtered by their current
 park. Role/park changes are checked on every read/export. Managers cannot edit,
 re-analyze or re-share. Analysts retain their existing owner/park restrictions.
 
-The work plan requires PDF export but the project had no export/PDF utility.
-Export therefore uses browser print-to-PDF without a new dependency: an authorized
-GET builds a standalone script-free UTF-8 HTML document from the stored snapshot;
-the browser opens it and invokes Print. The user chooses Save as PDF. Exact trend
-tables replace the interactive chart; all core context, statistics, hotspot
-counts, per-zone coverage, omissions and narrative are included. All content is
-HTML-escaped, inline CSP blocks scripts/network access, and filenames/URLs are
-not derived from analyst text. Fonts come from the browser/system, preserving
-Unicode where installed. Page headers and repeated table headers aid printing.
+Export returns a downloadable PDF from the stored snapshot using Playwright
+Chromium. The document includes the WildGuard system header, finalized status,
+context, statistics, trend tables, hotspots, patrol coverage, findings and
+recommendations, plus numbered footers. Text is escaped; scripts and network
+access are disabled. See the installation requirements below.
 
-Export is read-only and rejects Drafts. An analyst owner or authorized recipient
-manager can export. Popup/network/authorization/print failures show retry feedback;
-the UI never claims a file was saved, since the browser controls destination and
-cancellation. A popup must be allowed, and a browser/OS PDF print destination is
-required. There is no server-side PDF engine or automatic PDF download.
+Export remains read-only and rejects Drafts. Only the analyst owner or an
+authorized shared manager can export. Failures show retry feedback; the UI
+reports that the download started without claiming the file was saved.
 
-Tests cover eligible managers, multi-recipient sharing, atomic rollback, duplicate
-requests, recipient read/export access, role/park changes, immutability, escaped
-export content, dialog callbacks and print failures/retries. Manual validation:
-use one/multiple managers, follow an in-app notification, test modal keyboard and
-Escape behavior, enable popups, choose Save as PDF and inspect a long/Unicode
-report. Check mobile/light/dark layouts and existing Draft/freshness flows.
+Tests cover recipient access, role/park changes, immutability, escaped content,
+PDF bytes and content, long narratives/page numbering, and download failures/retries.
 
 `analytics.statistics.test.js` uses the existing backend Vitest runner to test
 the exact dependency-free frontend calculation. The MongoDB repository test also
@@ -285,7 +274,7 @@ passes serialized query results through it to verify filter-dependent totals.
 ## Stage 2 API and source contract
 
 - `GET /api/analytics/options`: current Data Analyst's permitted parks and the
-  union of existing alert/conflict type enums. Species options are empty.
+  union of existing alert/conflict type enums. Species options come from explicit incident names in permitted parks.
 - `GET /api/analytics?parkId=...&startDate=YYYY-MM-DD&endDate=YYYY-MM-DD&incidentType=...`:
   returns `{ filters, retrievedAt, period, park, zones, records, freshness, limitations }`.
   `records` contains separate `alerts`, `conflicts`, and `patrolRecords` arrays.
@@ -299,8 +288,8 @@ passes serialized query results through it to verify filter-dependent totals.
   are included if they started before the interval ends.
 - Incident type matches `Alert.type` and `ConflictReport.conflictType` exactly.
   It does not restrict patrols or zones, which are coverage context.
-- Species is currently unavailable; nonempty species requests are rejected,
-  not silently ignored. No species are inferred from text or alert types.
+- Species is optional; explicit names are normalized and filtered on alerts.
+  No species are inferred from text or alert types.
 - Queries use existing collections without changing their schemas. Contact
   details, reporter identities and evidence blobs are omitted. Each record
   source is limited to 5,000 matches; larger results fail with
@@ -341,3 +330,41 @@ Notes:
 - Reuse the UC04 coverage calculation (`modules/patrol/coverage.service.js`) so patrol coverage matches on every screen.
 - "Share with Park Manager" should call `notificationService.notifyUsers([managerId], { type: 'conservation-report', link: '/reports/<id>' })`.
 - Compute every result from stored records, so the output changes when the filters or the data change.
+
+
+### Downloadable PDF export
+
+`GET /api/reports/:id/export` now returns `application/pdf` with an attachment
+filename, rather than JSON HTML. Existing finalized-only ownership/shared-manager
+checks and `Cache-Control: no-store` remain in place. Export reads the saved
+snapshot and does not update the report. The UI downloads the returned Blob.
+
+After `npm ci`, run `npm run pdf:install` in `backend` to install Playwright
+Chromium for the backend service account. On Linux provision browser libraries
+with `npx playwright install --with-deps chromium`. Install fonts appropriate for
+report languages (including Sinhala/Tamil if used); Chromium uses system font
+fallback. The renderer needs permission to launch a headless process. No browser
+window or user print dialog is involved. Tests also require Chromium; pdfjs-dist
+is used only to inspect generated PDF files in tests.
+
+The self-contained layout escapes all report text, disables JavaScript and
+network access, repeats table headers and includes page numbering. Each export
+closes its renderer and returns the PDF in memory, without writing report files.
+
+
+### Structured species integration
+
+The optional `species` string on WildlifeIncident and Alert is an explicit name,
+normalized to lowercase with single spaces (maximum 80 input characters). There
+is no additional collection or seed data. UC03 copies it to actionable alerts
+inside the existing transaction. Offline payloads retain it unchanged and absent
+species does not change legacy upload fingerprints.
+
+Options are distinct recorded incident names in permitted parks, represented as
+`{ id, label }` with the canonical name in both fields. Selected species filters
+alerts before the existing calculations; conflicts have no structured species
+and are excluded when a species is selected. All species includes legacy records.
+Raw sightings are not added as a new source, avoiding duplicate event counting.
+Patrol coverage and freshness are unchanged. Filters are copied through existing
+report context/snapshots and restored by re-analysis; old missing/empty values
+remain valid. Species labels appear in results, report summary and PDF export.

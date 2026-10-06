@@ -91,13 +91,15 @@ See [design/UC01-conflict-response.md](design/UC01-conflict-response.md) for the
 
 | Method | Path | Roles | Query | Result |
 |---|---|---|---|---|
-| GET | `/api/analytics/options` | data-analyst | None | `{ parks, incidentTypes, species: [] }`; parks restricted to the current account's assigned park, or all parks if none is assigned |
-| GET | `/api/analytics` | data-analyst | Required `parkId`, `startDate`, `endDate` (YYYY-MM-DD); optional `incidentType`, empty `species` | `{ filters, retrievedAt, period, park, zones, records: { alerts, conflicts, patrolRecords }, freshness, limitations }` |
+| GET | `/api/analytics/options` | data-analyst | None | `{ parks, incidentTypes, species: [{ id, label }] }`; parks restricted to the current account's assigned park, or all parks if none is assigned |
+| GET | `/api/analytics` | data-analyst | Required `parkId`, `startDate`, `endDate` (YYYY-MM-DD); optional `incidentType`, `species` | `{ filters, retrievedAt, period, park, zones, records: { alerts, conflicts, patrolRecords }, freshness, limitations }` |
 
 Dates include both days in Asia/Colombo. Alert dates use `createdAt`, conflicts
 use `occurredAt`, and patrols overlap the period. Incident type restricts
-alerts/conflicts only; species filtering is not yet supported. Nonempty species
-and invalid filters return 400. Unauthorized park selection returns 403;
+alerts/conflicts only. Species is an optional normalized name (maximum 80
+characters); a selected species matches structured Alert.species and excludes
+conflicts without species. Empty species includes unspecified records. Invalid
+filters return 400. Unauthorized park selection returns 403;
 unknown parks return 404; over 5,000 matches in a source returns 422
 `ANALYTICS_RANGE_TOO_LARGE`. Records are never silently truncated.
 
@@ -157,7 +159,7 @@ does not replace, finalize or delete the original Draft.
 |---|---|---|---|
 | GET | `/api/reports/:id/recipients` | owning data-analyst | `{ managers: [{ id, name }] }`, same-park and park-unassigned managers |
 | POST | `/api/reports/:id/share` | owning data-analyst | `{ recipients: [managerId, ...] }` (1–100); returns `{ sharedCount, newlySharedCount }` |
-| GET | `/api/reports/:id/export` | owning data-analyst or shared park-manager | `{ html }`, escaped standalone print document for browser Save as PDF |
+| GET | `/api/reports/:id/export` | owning data-analyst or shared park-manager | `application/pdf`, downloadable attachment generated from the saved snapshot |
 
 All require authentication, current-role/park authorization and Finalized status.
 Draft requests return 409 `REPORT_NOT_FINALIZED`. Invalid recipient selection
@@ -168,8 +170,8 @@ are idempotent. Content/status/timestamps remain unchanged. Managers cannot shar
 GET `/api/reports` and `/:id` now also accept park-managers, returning only reports
 explicitly shared with them and still within their current permitted park. They
 cannot edit/re-analyze reports. Export returns no unrelated user/source documents,
-does not write to the database, and invokes no server-side PDF process. The browser
-controls PDF saving/cancellation. All report responses use `Cache-Control: no-store`.
+does not write to the database. The server generates a PDF using headless Chromium;
+the browser downloads the file without a print dialog. All report responses use `Cache-Control: no-store`.
 
 ### UC03 Incident reporting (KALMADU H L G)
 
@@ -177,6 +179,25 @@ See [design/UC03-incident-reporting.md](design/UC03-incident-reporting.md) for t
 
 | Method | Path | Roles | Body / query | Result |
 |---|---|---|---|---|
-| POST | `/api/incidents` | ranger | `{ clientId, parkId, zoneId?, type, severity?, description, observedAt, deviceCreatedAt, location?, locationNote?, recordedOffline?, photos?[] }` | `201` `{ incident, alert, duplicate: false }`; an identical retry returns `200` with `duplicate: true`. Reusing the client id for different data returns `409 CLIENT_ID_REUSED` |
+| POST | `/api/incidents` | ranger | `{ clientId, parkId, zoneId?, type, severity?, species?, description, observedAt, deviceCreatedAt, location?, locationNote?, recordedOffline?, photos?[] }` | `201` `{ incident, alert, duplicate: false }`; an identical retry returns `200` with `duplicate: true`. Reusing the client id for different data returns `409 CLIENT_ID_REUSED` |
 | GET | `/api/incidents/mine` | ranger | — | `{ incidents }`, newest observation first |
 | GET | `/api/incidents/:id` | ranger (owner) | — | `{ incident, photos }`; another ranger receives `404 INCIDENT_NOT_FOUND` |
+
+
+### Optional structured species (UC03 / UC02)
+
+`POST /api/incidents` accepts optional `species`: an explicit name, at most 80
+characters, normalized by trimming, collapsing whitespace and lowercasing.
+The canonical name is the stable identifier and label; options use `{ id, label }`
+with that value in both fields. No taxonomy, inferred names or seed data is added.
+Omission/empty means unspecified and remains compatible with old offline retries.
+Species is stored on WildlifeIncident and copied into actionable incident alerts.
+
+`GET /api/analytics/options` derives species from incidents in the current
+analyst's permitted parks. Options are not restricted by the selected date range;
+a species may have no matching alert events for the chosen park/period.
+Analytics still counts alerts and conflicts, never raw incidents a second time.
+Sightings without operational alerts are not event records in UC02.
+Patrols remain unfiltered by species. Species persists in `snapshot.context.filters`
+and draft re-analysis, preview and PDF export; missing/empty legacy values mean
+All species. Authorization, report immutability and freshness rules are unchanged.
