@@ -1,6 +1,6 @@
 // Callback and routing tests using the same lightweight hook harness as earlier
 // UC02 stages. Browser focus and visual layout still require manual checks.
-const harness = vi.hoisted(() => ({ slots: [], cursor: 0, patch: vi.fn(), navigate: vi.fn(), params: null, setParams: vi.fn(), query: null, getQuery: vi.fn() }))
+const harness = vi.hoisted(() => ({ slots: [], cursor: 0, patch: vi.fn(), navigate: vi.fn(), params: null, setParams: vi.fn(), query: null, getQuery: vi.fn(), role: 'data-analyst' }))
 vi.mock('../../../../frontend/node_modules/react/index.js', async (importOriginal) => ({
   ...await importOriginal(),
   useState(initial) {
@@ -18,7 +18,7 @@ vi.mock('../../../../frontend/node_modules/react-router/dist/development/index.j
 vi.mock('../../../../frontend/node_modules/react-router/dist/production/index.js', () => ({ useNavigate: () => harness.navigate, useSearchParams: () => [harness.params, harness.setParams] }))
 vi.mock('../../../../frontend/src/lib/api.js', () => ({ api: { patch: harness.patch } }))
 vi.mock('../../../../frontend/src/hooks/useApiQuery.js', () => ({ useApiQuery: (...args) => { harness.getQuery(...args); return harness.query } }))
-vi.mock('../../../../frontend/src/context/auth-context.js', () => ({ useAuth: () => ({ user: { role: 'data-analyst' } }) }))
+vi.mock('../../../../frontend/src/context/auth-context.js', () => ({ useAuth: () => ({ user: { role: harness.role } }) }))
 let DraftEditor, ReportsPage, AnalysisPage, AnalysisFiltersPage, initialReportState
 beforeAll(async () => {
   vi.stubGlobal('React', await import('../../../../frontend/node_modules/react/index.js'))
@@ -28,6 +28,7 @@ beforeAll(async () => {
   ;({ initialReportState } = await import('../../../../frontend/src/features/analytics/lib/reportPreparation.js'))
 })
 beforeEach(() => {
+  harness.role = 'data-analyst'
   harness.slots = []
   harness.params = new URLSearchParams()
   harness.query = { data: { reports: [] } }
@@ -130,3 +131,47 @@ it('does not enter analysis if restoration is denied, missing, or still loading'
     expect(AnalysisPage().type).not.toBe(AnalysisFiltersPage)
   }
 })
+
+
+it.each([
+  ['', true, true], ['draft', true, false], ['finalized', false, true], ['invalid', true, true],
+])('filters report cards for status %s without changing the API', (status, draft, finalized) => {
+  harness.params = new URLSearchParams({ status })
+  harness.query = { data: { reports: [report(), { ...report('finalized'), id: 'final-id' }], hasMore: false } }
+  const tree = ReportsPage()
+  expect(Boolean(button(tree, 'Open Draft'))).toBe(draft)
+  expect(Boolean(button(tree, 'View report'))).toBe(finalized)
+  expect(harness.getQuery).toHaveBeenCalledWith('/reports?page=1', { enabled: true })
+})
+
+it('switches status views and resets pagination', () => {
+  harness.params = new URLSearchParams('page=3&status=draft')
+  const tree = ReportsPage()
+  expect(button(tree, 'Drafts').props['aria-pressed']).toBe(true)
+  button(tree, 'Finalized').props.onClick()
+  expect(harness.setParams).toHaveBeenLastCalledWith({ status: 'finalized' })
+  button(tree, 'All').props.onClick()
+  expect(harness.setParams).toHaveBeenLastCalledWith({})
+})
+
+it('keeps pagination available on a page with no matching status', () => {
+  harness.params = new URLSearchParams('status=draft&page=2')
+  harness.query = { data: { reports: [report('finalized')], hasMore: true } }
+  const tree = ReportsPage()
+  expect(find(tree, (node) => node.props?.title === 'No draft reports on this page.')).toBeDefined()
+  expect(button(tree, 'Next').props.disabled).toBe(false)
+  button(tree, 'Next').props.onClick()
+  expect(harness.setParams).toHaveBeenLastCalledWith({ status: 'draft', page: '3' })
+})
+
+it('preserves status and page when opening a draft and returning to the list', () => {
+  harness.params = new URLSearchParams('status=draft&page=2')
+  harness.query = { data: { reports: [report()] } }
+  button(ReportsPage(), 'Open Draft').props.onClick()
+  expect(harness.setParams).toHaveBeenLastCalledWith({ status: 'draft', page: '2', reportId: 'draft-id' })
+  harness.params.set('reportId', 'draft-id')
+  harness.query = { data: { report: report() } }
+  button(ReportsPage(), 'Back to Reports').props.onClick()
+  expect(harness.setParams).toHaveBeenLastCalledWith({ status: 'draft', page: '2' })
+})
+
