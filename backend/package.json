@@ -14,7 +14,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "pdf:install": "playwright install chromium"
+    "pdf:install": "playwright install chromium",
+    "seed:analytics": "node src/seed/analytics-sample.seed.js"
   },
   "keywords": [],
   "author": "",
