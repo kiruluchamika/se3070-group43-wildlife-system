@@ -1,21 +1,19 @@
 import { api } from '../../../lib/api'
 
-/** The browser owns PDF creation/download; cancellation never changes a report. */
-export async function printFinalizedReport(reportId, openWindow = () => window.open('', '_blank')) {
-  const popup = openWindow()
-  if (!popup) throw new Error('Allow pop-ups for WildGuard, then retry Export.')
+/** Download only the server-authorized PDF; no popup or browser printing. */
+export async function downloadFinalizedReport(reportId) {
+  const pdf = await api.get(`/reports/${encodeURIComponent(reportId)}/export`, { responseType: 'blob' })
+  if (pdf.type !== 'application/pdf' || pdf.size === 0) throw new Error('The server did not return a PDF.')
+  const url = URL.createObjectURL(pdf)
+  const link = document.createElement('a')
   try {
-    popup.opener = null
-    const { html } = await api.get(`/reports/${encodeURIComponent(reportId)}/export`)
-    if (popup.closed) throw new Error('The export window was closed. Please retry Export.')
-    popup.document.open()
-    popup.document.write(html)
-    popup.document.close()
-    await popup.document.fonts?.ready
-    popup.focus()
-    popup.print()
-  } catch (error) {
-    popup.close()
-    throw error
+    link.href = url
+    link.download = `WildGuard-report-${reportId.replace(/[^a-zA-Z0-9_-]/g, '')}.pdf`
+    document.body.appendChild(link)
+    link.click()
+  } finally {
+    link.remove()
+    // Give the browser time to begin reading the download before releasing it.
+    setTimeout(() => URL.revokeObjectURL(url), 60000)
   }
 }

@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 import { Button } from '../../../components/ui/Button'
 import { ShareReportDialog } from './ShareReportDialog'
-import { printFinalizedReport } from '../lib/exportReport'
+import { downloadFinalizedReport } from '../lib/exportReport'
 
 export function FinalizedReportActions({ report, canShare }) {
   const [sharing, setSharing] = useState(false)
@@ -18,15 +18,15 @@ export function FinalizedReportActions({ report, canShare }) {
     setMessage(null)
     setError(null)
     try {
-      await printFinalizedReport(report.id)
-      setMessage('The print dialog was opened. Choose Save as PDF to export; cancelling leaves the report unchanged.')
+      await downloadFinalizedReport(report.id)
+      setMessage('PDF download started.')
     } catch {
-      setError('Unable to open the report export. Allow pop-ups for WildGuard, check your connection, and retry.')
+      setError('Unable to download the report PDF. Check your connection and retry.')
     } finally { inFlight.current = false; setExporting(false) }
   }
   return <div className="mt-6 border-t border-line pt-5">
     <div className="flex flex-wrap gap-3">{canShare && <Button variant="secondary" onClick={() => { setMessage(null); setSharing(true) }}>Share</Button>}
-      <Button loading={exporting} onClick={exportReport}>Export</Button></div>
+      <Button loading={exporting} onClick={exportReport}>Export PDF</Button></div>
     <p className="mt-3 text-xs text-muted">Export opens a print-ready copy. Select Save as PDF in your browser’s print dialog.</p>
     {message && <p role="status" className="mt-3 text-sm text-fg">{message}</p>}
     {error && <p role="alert" className="mt-3 text-sm text-red-500 dark:text-red-300">{error}</p>}

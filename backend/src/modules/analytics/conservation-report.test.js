@@ -118,7 +118,8 @@ describe.skipIf(!hasTestDatabase)('UC02 persisted draft/finalized reports', () =
     const report = (await save(input('finalized'))).body.report
     const response = await request(app).get(`/api/reports/${report.id}/recipients`).set('Authorization', auth())
     expect(response.status).toBe(200)
-    expect(response.body.managers).toEqual(users.slice(0, 2).map((user) => ({ id: String(user._id), name: user.name })))
+    const byId = (first, second) => first.id.localeCompare(second.id)
+    expect([...response.body.managers].sort(byId)).toEqual(users.slice(0, 2).map((user) => ({ id: String(user._id), name: user.name })).sort(byId))
   })
   it('shares atomically with multiple managers, enabling only their read/export access', async () => {
     const users = await managers()
@@ -193,13 +194,42 @@ describe.skipIf(!hasTestDatabase)('UC02 persisted draft/finalized reports', () =
     const before = await db.models.ConservationReport.findById(report.id).lean()
     const response = await request(app).get(`/api/reports/${report.id}/export`).set('Authorization', auth())
     expect(response.status).toBe(200)
-    const { html } = response.body
+    expect(response.headers['content-type']).toContain('application/pdf')
+    expect(response.headers['content-disposition']).toContain('.pdf')
+    expect(response.headers['cache-control']).toBe('no-store')
+    expect(response.body.subarray(0, 5).toString()).toBe('%PDF-')
+    const { exportReport } = require('./conservation-report.export')
+    const html = exportReport(before)
     for (const content of ['Status: Finalized', 'Yala', '2026-10-01 to 2026-10-07', 'Statistics', 'Trends', 'Hotspots', 'Patrol coverage', 'North', 'Recommendations', body.recommendations, 'සිංහල', '&lt;script&gt;']) expect(html).toContain(content)
     expect(html).not.toContain('<script>')
     expect(html).not.toContain('<img')
     expect(html).not.toContain('sharedWith')
     expect(await db.models.ConservationReport.findById(report.id).lean()).toEqual(before)
     expect((await request(app).get(`/api/reports/${report.id}/export`).set('Authorization', auth(otherAuthor))).status).toBe(404)
+  })
+  it('generates a readable multi-page PDF with complete long narratives and page numbers', async () => {
+    const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs')
+    const body = input('finalized')
+    body.snapshot.context.filters.species = 'test species'
+    body.findings = 'Field observation and conservation evidence. '.repeat(105) + 'FINDINGS-END'
+    body.recommendations = 'Schedule follow-up patrols and review evidence. '.repeat(100) + 'RECOMMENDATIONS-END'
+    const report = (await save(body)).body.report
+    const response = await request(app).get(`/api/reports/${report.id}/export`).set('Authorization', auth())
+    expect(response.status).toBe(200)
+    const loading = getDocument({ data: new Uint8Array(response.body), useSystemFonts: true })
+    const pdf = await loading.promise
+    try {
+      expect(pdf.numPages).toBeGreaterThan(1)
+      const pages = []
+      for (let number = 1; number <= pdf.numPages; number++) {
+        const page = await pdf.getPage(number)
+        const text = (await page.getTextContent()).items.map((item) => item.str).join(' ')
+        expect(text).toContain(`Page ${number} of ${pdf.numPages}`)
+        pages.push(text)
+      }
+      const text = pages.join(' ')
+      for (const value of ['WildGuard Conservation System', body.title, 'Finalized', 'test species', 'Yala', 'Statistics', 'Trends', 'Hotspots', 'Patrol coverage', 'Findings', 'Recommendations', 'FINDINGS-END', 'RECOMMENDATIONS-END']) expect(text).toContain(value)
+    } finally { await loading.destroy() }
   })
   it('preserves species in saved snapshots, draft re-analysis and export context', async () => {
     const body = input('draft')

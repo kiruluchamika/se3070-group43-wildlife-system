@@ -22,9 +22,9 @@ export function onUnauthorized(listener) {
   return () => unauthorizedListeners.delete(listener)
 }
 
-export async function apiRequest(path, { method = 'GET', body, signal } = {}) {
+export async function apiRequest(path, { method = 'GET', body, signal, responseType = 'json' } = {}) {
   const token = sessionStore.getToken()
-  const headers = { Accept: 'application/json' }
+  const headers = { Accept: responseType === 'blob' ? 'application/pdf' : 'application/json' }
   if (body !== undefined) headers['Content-Type'] = 'application/json'
   if (token) headers.Authorization = `Bearer ${token}`
 
@@ -44,6 +44,8 @@ export async function apiRequest(path, { method = 'GET', body, signal } = {}) {
   }
 
   if (response.status === 204) return null
+
+  if (response.ok && responseType === 'blob') return response.blob()
 
   const data = await response.json().catch(() => null)
   if (!response.ok) {

@@ -20,7 +20,7 @@ beforeAll(async () => {
   vi.stubGlobal('React', await import('../../../../frontend/node_modules/react/index.js'))
   ;({ ShareReportDialog: Dialog } = await import('../../../../frontend/src/features/analytics/components/ShareReportDialog.jsx'))
   ;({ FinalizedReportActions: Actions } = await import('../../../../frontend/src/features/analytics/components/FinalizedReportActions.jsx'))
-  ;({ printFinalizedReport: printReport } = await import('../../../../frontend/src/features/analytics/lib/exportReport.js'))
+  ;({ downloadFinalizedReport: printReport } = await import('../../../../frontend/src/features/analytics/lib/exportReport.js'))
 })
 afterAll(() => vi.unstubAllGlobals())
 beforeEach(() => {
@@ -47,7 +47,7 @@ function select(name) {
 }
 it('shows finalized actions, hides both on Drafts, and prevents manager re-sharing', () => {
   expect(button(actions(), 'Share')).toBeDefined()
-  expect(button(actions(), 'Export')).toBeDefined()
+  expect(button(actions(), 'Export PDF')).toBeDefined()
   expect(actions({ report: { ...report, status: 'draft' } })).toBeNull()
   expect(button(actions({ canShare: false }), 'Share')).toBeUndefined()
 })
@@ -106,35 +106,46 @@ it('disables sharing when there are no eligible recipients or loading fails', ()
     expect(button(dialog(), 'Share Report').props.disabled).toBe(true)
   }
 })
-function popup() {
-  return { document: { open: vi.fn(), write: vi.fn(), close: vi.fn(), fonts: { ready: Promise.resolve() } }, focus: vi.fn(), print: vi.fn(), close: vi.fn(), closed: false }
+function downloadBrowser() {
+  const link = { click: vi.fn(), remove: vi.fn() }
+  vi.stubGlobal('document', { createElement: () => link, body: { appendChild: vi.fn() } })
+  vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:report')
+  vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+  return link
 }
-it('exports only the server-authorized document through the browser print dialog', async () => {
-  const window = popup()
-  harness.get.mockResolvedValueOnce({ html: '<html><body>Finalized report</body></html>' })
-  await printReport('report', () => window)
-  expect(harness.get).toHaveBeenCalledWith('/reports/report/export')
-  expect(window.document.write).toHaveBeenCalledWith('<html><body>Finalized report</body></html>')
-  expect(window.print).toHaveBeenCalledOnce()
-  expect(window.opener).toBeNull()
+afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks() })
+it('downloads the authorized PDF and releases its temporary URL', async () => {
+  vi.useFakeTimers()
+  const link = downloadBrowser()
+  const pdf = new Blob(['%PDF-1.7'], { type: 'application/pdf' })
+  harness.get.mockResolvedValueOnce(pdf)
+  await printReport('report')
+  expect(harness.get).toHaveBeenCalledWith('/reports/report/export', { responseType: 'blob' })
+  expect(URL.createObjectURL).toHaveBeenCalledWith(pdf)
+  expect(link.download).toBe('WildGuard-report-report.pdf')
+  expect(link.href).toBe('blob:report')
+  expect(link.click).toHaveBeenCalledOnce()
+  expect(link.remove).toHaveBeenCalledOnce()
+  vi.runAllTimers()
+  expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:report')
   expect(harness.post).not.toHaveBeenCalled()
 })
-it('handles blocked popups and failed export without printing, then allows retry', async () => {
-  await expect(printReport('report', () => null)).rejects.toThrow('Allow pop-ups')
-  expect(harness.get).not.toHaveBeenCalled()
-  const failed = popup()
-  harness.get.mockRejectedValueOnce(new Error('Export failed'))
-  await expect(printReport('report', () => failed)).rejects.toThrow('Export failed')
-  expect(failed.print).not.toHaveBeenCalled()
-  expect(failed.close).toHaveBeenCalledOnce()
-  const retry = popup()
-  harness.get.mockResolvedValueOnce({ html: '<html>Finalized report</html>' })
-  await printReport('report', () => retry)
-  expect(retry.print).toHaveBeenCalledOnce()
+it('does not download denied or invalid responses and permits retry', async () => {
+  vi.useFakeTimers()
+  const link = downloadBrowser()
+  harness.get.mockRejectedValueOnce(new Error('Access denied'))
+  await expect(printReport('report')).rejects.toThrow('Access denied')
+  harness.get.mockResolvedValueOnce(new Blob(['error'], { type: 'application/json' }))
+  await expect(printReport('report')).rejects.toThrow('did not return a PDF')
+  expect(link.click).not.toHaveBeenCalled()
+  harness.get.mockResolvedValueOnce(new Blob(['%PDF-1.7'], { type: 'application/pdf' }))
+  await printReport('report')
+  expect(link.click).toHaveBeenCalledOnce()
+  vi.runAllTimers()
 })
-it('reports export failure safely and never claims a PDF was saved', async () => {
-  vi.stubGlobal('window', { open: () => null })
-  await button(actions(), 'Export').props.onClick()
-  expect(harness.slots[3]).toContain('Unable to open the report export')
+it('reports export failure safely without claiming success', async () => {
+  harness.get.mockRejectedValueOnce(new Error('private error'))
+  await button(actions(), 'Export PDF').props.onClick()
+  expect(harness.slots[3]).toContain('Unable to download the report PDF')
   expect(harness.slots[2]).toBeNull()
 })

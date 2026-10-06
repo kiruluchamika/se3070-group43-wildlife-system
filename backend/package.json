@@ -13,7 +13,8 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "pdf:install": "playwright install chromium"
   },
   "keywords": [],
   "author": "",
@@ -27,6 +28,7 @@
     "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.10.2",
+    "playwright": "^1.63.0",
     "zod": "^4.6.5"
   },
   "devDependencies": {
@@ -37,6 +39,7 @@
     "globals": "^17.12.0",
     "mongodb-memory-server": "^11.3.0",
     "nodemon": "^3.1.14",
+    "pdfjs-dist": "^6.4.299",
     "supertest": "^7.3.0",
     "vitest": "^5.0.1"
   }

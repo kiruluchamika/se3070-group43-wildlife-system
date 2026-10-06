@@ -4,7 +4,7 @@ const { validate } = require('../../shared/middleware/validate')
 const { idParams } = require('../../shared/validation')
 const { serialize } = require('../../shared/utils/serialize')
 const { saveReportBody, reportsQuery, editDraftBody, shareReportBody } = require('./conservation-report.schemas')
-const { exportReport } = require('./conservation-report.export')
+const { generateReportPdf } = require('./conservation-report.export')
 
 function createReportRouter({ reportService, authenticate }) {
   const router = express.Router()
@@ -33,7 +33,10 @@ function createReportRouter({ reportService, authenticate }) {
   })
   router.get('/:id/export', validate({ params: idParams }), async (request, response) => {
     const report = await reportService.get(request.validated.params.id, request.user)
-    response.json({ html: exportReport(report) })
+    const pdf = await generateReportPdf(report)
+    response.set('Content-Type', 'application/pdf')
+    response.set('Content-Disposition', `attachment; filename="WildGuard-report-${request.validated.params.id}.pdf"`)
+    response.send(pdf)
   })
   return router
 }
