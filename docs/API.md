@@ -86,5 +86,88 @@ See [design/UC01-conflict-response.md](design/UC01-conflict-response.md) for the
 | PATCH | `/api/response-tasks/:id/acknowledge` | ranger (team member) | — | Repeating is harmless |
 | POST | `/api/response-tasks/:id/actions` | ranger (team member) | `{ clientUpdateId, type, note?, location?, recordedAt, recordedOffline? }` | 201 new, 200 `{ duplicate: true }` for a retried id. 409 `TASK_CLOSED`, `CLIENT_ID_REUSED` |
 | PATCH | `/api/response-tasks/:id/complete` | ranger (team member) | `{ clientUpdateId, outcome, notes?, completedAt }` | Frees the team; idempotent per `clientUpdateId`. 409 `TASK_ALREADY_COMPLETED` |
-- **UC02 Analysis and reports (JALATHGE C.A.J):** *to be added*
+### UC02 Analysis retrieval (Stage 2)
+
+| Method | Path | Roles | Query | Result |
+|---|---|---|---|---|
+| GET | `/api/analytics/options` | data-analyst | None | `{ parks, incidentTypes, species: [] }`; parks restricted to the current account's assigned park, or all parks if none is assigned |
+| GET | `/api/analytics` | data-analyst | Required `parkId`, `startDate`, `endDate` (YYYY-MM-DD); optional `incidentType`, empty `species` | `{ filters, retrievedAt, period, park, zones, records: { alerts, conflicts, patrolRecords }, freshness, limitations }` |
+
+Dates include both days in Asia/Colombo. Alert dates use `createdAt`, conflicts
+use `occurredAt`, and patrols overlap the period. Incident type restricts
+alerts/conflicts only; species filtering is not yet supported. Nonempty species
+and invalid filters return 400. Unauthorized park selection returns 403;
+unknown parks return 404; over 5,000 matches in a source returns 422
+`ANALYTICS_RANGE_TOO_LARGE`. Records are never silently truncated.
+
+`freshness.requiresConfirmation` is true only for retrieved patrol records
+explicitly marked `syncStatus: pending`. The modal displays their source and
+last successful sync as "Not recorded", since no such timestamp exists on
+that model. Camera/GPS alert freshness is unknown; age alone never warns.
+No report endpoints or analysis calculations are implemented in Stage 2.
+
+### UC02 Conservation reports (Stage 7)
+
+| Method | Path | Role | Input | Result |
+|---|---|---|---|---|
+| POST | `/api/reports` | data-analyst | `{ requestId: UUID, status: draft\|finalized, title, findings, recommendations, snapshot }` | 201 `{ report }`; identical retries return the same report |
+| GET | `/api/reports?page=1` | data-analyst | Page (default 1) | `{ reports, page, hasMore }`, 20 summaries per page |
+| GET | `/api/reports/:id` | data-analyst | Report ID | `{ report }`, including its saved analysis snapshot |
+
+Analysts access owned reports, further restricted by their current assigned
+park. Deleted accounts and changed roles are rechecked. Managers cannot access
+unshared reports. Unsupported status, blank/overlong title, overlong narratives,
+inconsistent filters/period/park or invalid source references return 400. Reusing
+a request ID for different content/status returns 409 `REPORT_SAVE_CONFLICT`.
+Missing/not-owned reports return 404. Server-generated ownership and timestamps
+cannot be supplied by clients. Draft has `finalizedAt: null`; Finalized records
+the server's finalization time. Finalized report content is read-only. Stage 9
+adds the sharing/export endpoints below.
+
+`snapshot` contains context, statistics, analysis (trends/hotspots/coverage), and
+`sourceReferences`. It preserves the analyst-submitted calculation, not a fresh
+query of changing source records. Narrative fields are plain text. Title limit:
+200 characters; findings/recommendations: 5,000 each. The frontend rejects save
+payloads over 950,000 UTF-8 bytes rather than truncating; the API retains its 1 MiB
+JSON limit. See the analytics README and `conservation-report.schemas.js` for the
+bounded snapshot contract and traceability limitations.
+
+### UC02 Draft editing and re-analysis (Stage 8)
+
+| Method | Path | Role | Input | Result |
+|---|---|---|---|---|
+| PATCH | `/api/reports/:id` | data-analyst | `{ title, findings, recommendations, revision }` | `{ report }`, still Draft; increments revision |
+| GET | `/api/reports/:id/reanalysis` | data-analyst | Report ID | `{ draft: { id, title, filters } }` from the saved snapshot; no writes |
+
+Both require current ownership and permitted-park access. Finalized reports
+return 409 `REPORT_READ_ONLY`; missing/not-owned reports return 404. PATCH rejects
+extra fields, invalid revision, blank title, title over 200 or narrative over
+5,000 characters. It cannot change status, filters or analysis results. Drafts
+created before Stage 8 start at revision 0. Stale concurrent edits return 409
+`DRAFT_CHANGED`; an identical immediately preceding retry is safe.
+
+Re-analysis restores editable filters into the normal analytics flow. Subsequent
+POST `/api/reports` creates a separate report after explicit Preview save. It
+does not replace, finalize or delete the original Draft.
+
+### UC02 Finalized sharing and export (Stage 9)
+
+| Method | Path | Role | Input/result |
+|---|---|---|---|
+| GET | `/api/reports/:id/recipients` | owning data-analyst | `{ managers: [{ id, name }] }`, same-park and park-unassigned managers |
+| POST | `/api/reports/:id/share` | owning data-analyst | `{ recipients: [managerId, ...] }` (1–100); returns `{ sharedCount, newlySharedCount }` |
+| GET | `/api/reports/:id/export` | owning data-analyst or shared park-manager | `{ html }`, escaped standalone print document for browser Save as PDF |
+
+All require authentication, current-role/park authorization and Finalized status.
+Draft requests return 409 `REPORT_NOT_FINALIZED`. Invalid recipient selection
+returns 403 `INVALID_REPORT_RECIPIENT`; an empty array returns 400. Sharing grants
+and in-app notifications commit in one transaction. Duplicate recipients/retries
+are idempotent. Content/status/timestamps remain unchanged. Managers cannot share.
+
+GET `/api/reports` and `/:id` now also accept park-managers, returning only reports
+explicitly shared with them and still within their current permitted park. They
+cannot edit/re-analyze reports. Export returns no unrelated user/source documents,
+does not write to the database, and invokes no server-side PDF process. The browser
+controls PDF saving/cancellation. All report responses use `Cache-Control: no-store`.
+
 - **UC03 Incident reporting (KALMADU H L G):** *to be added*
