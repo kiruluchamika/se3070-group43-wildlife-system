@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 
 export const ROLES = Object.freeze({
+  ADMINISTRATOR: 'administrator',
   VILLAGER: 'villager',
   RANGER: 'ranger',
   LIAISON_OFFICER: 'liaison-officer',
@@ -24,6 +25,7 @@ export const ROLES = Object.freeze({
 })
 
 export const ROLE_LABELS = {
+  [ROLES.ADMINISTRATOR]: 'Administrator',
   [ROLES.VILLAGER]: 'Villager',
   [ROLES.RANGER]: 'Ranger',
   [ROLES.LIAISON_OFFICER]: 'Community Liaison Officer',
@@ -45,6 +47,7 @@ export const MODULE_OWNERS = {
  * `ready: false` shows the module placeholder until the owner merges the page.
  */
 export const NAV_ITEMS = [
+  { path: '/users', label: 'User Management', icon: Users, roles: [ROLES.ADMINISTRATOR], ready: true },
   { path: '/', label: 'Dashboard', icon: Home, roles: Object.values(ROLES), ready: true, end: true },
 
   // UC04 — Park Manager

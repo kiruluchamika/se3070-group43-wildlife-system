@@ -8,6 +8,7 @@ import { riseIn, stagger } from '../../lib/motion'
 import { MODULE_OWNERS, navItemsFor, ROLE_LABELS, ROLES } from '../../lib/navigation'
 
 const ROLE_INTRO = {
+  [ROLES.ADMINISTRATOR]: 'Manage WildGuard users, roles and account access.',
   [ROLES.PARK_MANAGER]: 'Monitor patrol coverage, respond to alerts and deploy ranger teams where they are needed most.',
   [ROLES.RANGER]: 'Check your patrol assignment, report incidents from the field and respond to conflict tasks.',
   [ROLES.LIAISON_OFFICER]: 'Validate community conflict reports and coordinate ranger responses with villages.',
