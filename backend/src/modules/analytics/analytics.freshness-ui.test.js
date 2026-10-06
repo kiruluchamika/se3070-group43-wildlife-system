@@ -150,3 +150,9 @@ it('enables species and keeps it through retrieval and freshness cancellation', 
   expect(field(render()).props.children({}).props.value).toBe('test species')
 })
 
+it('shows Filters progress during filtering and pending freshness', async () => {
+  const { WorkflowStepper } = await import('../../../../frontend/src/features/analytics/components/WorkflowStepper.jsx')
+  expect(find(render(), WorkflowStepper).props.current).toBe('filters')
+  await retrieve(true)
+  expect(find(render(), WorkflowStepper).props.current).toBe('filters')
+})

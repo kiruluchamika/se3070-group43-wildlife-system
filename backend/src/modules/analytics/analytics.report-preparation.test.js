@@ -116,3 +116,10 @@ it('discloses failed analysis sections instead of manufacturing zero results', (
   props.analysis = { trends: { status: 'error' }, hotspots: { status: 'error' }, coverage: { status: 'error' } }
   expect(render(prepared(), props).match(/Unavailable: calculation failed/g)).toHaveLength(3)
 })
+
+it.each([['findings', 2], ['preparation', 3]])('shows %s progress without changing existing form actions', (step, completed) => {
+  const html = render({ ...prepared(), step })
+  expect(html.match(/, completed/g)).toHaveLength(completed)
+  expect(html.match(/aria-current="step"/g)).toHaveLength(1)
+  expect(html).toContain(step === 'findings' ? 'Continue to Report Preparation' : 'Generate Report')
+})

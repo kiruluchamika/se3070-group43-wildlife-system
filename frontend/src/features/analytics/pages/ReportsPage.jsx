@@ -1,3 +1,4 @@
+import { WorkflowStepper } from '../components/WorkflowStepper'
 import { useSearchParams } from 'react-router'
 import { useAuth } from '../../../context/auth-context'
 import { useApiQuery } from '../../../hooks/useApiQuery'
@@ -34,6 +35,7 @@ export default function ReportsPage() {
       : query.loading ? <Skeleton className="h-64" />
         : query.error ? <Card><ErrorState message={query.error.status >= 500 ? 'Unable to load reports. Please try again.' : query.error.message} onRetry={query.reload} /></Card>
           : report ? <>
+            {analyst && <WorkflowStepper current="saved" />}
             <div className="mb-5 flex flex-wrap items-center gap-3"><Badge tone={report.status === 'draft' ? 'amber' : 'green'}>{report.status === 'draft' ? 'Draft' : 'Finalized'}</Badge>
               {params.get('saved') === '1' && <p role="status" className="text-sm text-fg">{report.status === 'draft' ? 'Report saved as draft.' : 'Report finalized successfully.'}</p>}
               <p className="text-xs text-muted">Saved {new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Colombo' }).format(new Date(report.createdAt))} · Sri Lanka time</p>

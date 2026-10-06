@@ -1,3 +1,4 @@
+import { WorkflowStepper } from '../components/WorkflowStepper'
 import { BarChart3, FileText, MapPinned, MessageSquareWarning, ShieldAlert } from 'lucide-react'
 import { useCallback, useMemo, useReducer } from 'react'
 import { Button } from '../../../components/ui/Button'
@@ -25,9 +26,9 @@ export default function AnalysisResultsPage({ dataset, onBack, onRetry }) {
   const [supporting, dispatch] = useReducer(supportingReducer, initialSupportingState)
   const [report, reportDispatch] = useReducer(reportPreparationReducer, initialReportState)
   const closeSupporting = useCallback(() => dispatch({ type: 'close' }), [])
-  const header = <PageHeader eyebrow="UC02 · Data Analyst" title="Analysis Results"
+  const header = <><PageHeader eyebrow="UC02 · Data Analyst" title="Analysis Results"
     description="Statistics from the available records matching your selected filters."
-    actions={<Button variant="secondary" onClick={onBack}>Back to Filters</Button>} />
+    actions={<Button variant="secondary" onClick={onBack}>Back to Filters</Button>} /><WorkflowStepper current="results" /></>
 
   if (result.status === 'error') {
     return <>{header}<Card><ErrorState title="Analysis unavailable" message={result.message} onRetry={onRetry} /></Card></>

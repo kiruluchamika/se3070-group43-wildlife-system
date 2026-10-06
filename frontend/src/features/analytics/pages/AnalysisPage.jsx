@@ -1,3 +1,4 @@
+import { WorkflowStepper } from '../components/WorkflowStepper'
 import { BarChart3, SlidersHorizontal } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
@@ -69,6 +70,7 @@ export function AnalysisFiltersPage({ initialFilters, sourceDraft, onCancelReana
         description="Choose a park and date range to prepare your conservation data analysis."
         actions={<Badge tone="brand">Data retrieval</Badge>}
       />
+      <WorkflowStepper current="filters" />
       {sourceDraft && <Card title="Previous report filters" className="mb-6">
         <p className="break-words text-sm text-muted">These are the filters used for “{sourceDraft.title}”. Keep or change them below. Re-analysis follows the normal freshness and results flow; the original Draft remains unchanged.</p>
         <Button className="mt-4" variant="secondary" onClick={onCancelReanalysis}>Cancel re-analysis</Button>

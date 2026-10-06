@@ -1,3 +1,4 @@
+import { WorkflowStepper } from '../components/WorkflowStepper'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { api } from '../../../lib/api'
@@ -34,6 +35,7 @@ export function ReportPreviewPage({ handoff, requestId, onBack }) {
   return <section ref={panel} tabIndex={-1} aria-label="Report Preview" className="min-w-0 outline-none">
     <PageHeader eyebrow="UC02 · Data Analyst" title="Report Preview" description="Review the generated content before choosing how to save it."
       actions={<Button variant="secondary" disabled={Boolean(saving)} onClick={onBack}>Back to Preparation</Button>} />
+    <WorkflowStepper current="preview" />
     <div className="mb-5 flex flex-wrap items-center gap-3"><Badge tone="sky">Preview</Badge><p className="text-sm text-muted">Not saved or finalized.</p></div>
     <ReportContent report={report} />
     {error && <p role="alert" className="mt-5 text-sm text-red-500 dark:text-red-300">{error}</p>}

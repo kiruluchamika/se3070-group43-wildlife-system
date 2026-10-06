@@ -128,3 +128,10 @@ it('retains species in preview snapshots and renders legacy reports as All speci
   expect(legacy).toContain('All species')
 })
 
+it('shows Preview progress while retaining the save actions', () => {
+  const html = renderToStaticMarkup(render())
+  expect(html.match(/, completed/g)).toHaveLength(4)
+  expect(html.match(/aria-current="step"/g)).toHaveLength(1)
+  expect(html).toContain('Save as Draft')
+  expect(html).toContain('Save as Finalized')
+})

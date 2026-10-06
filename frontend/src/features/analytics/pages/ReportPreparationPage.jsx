@@ -1,3 +1,4 @@
+import { WorkflowStepper } from '../components/WorkflowStepper'
 import { useEffect, useRef } from 'react'
 import { Button } from '../../../components/ui/Button'
 import { Card } from '../../../components/ui/Card'
@@ -19,6 +20,7 @@ export function ReportPreparationPage({ state, dispatch, result, analysis, datas
     <PageHeader eyebrow="UC02 · Data Analyst" title={heading}
       description={findingsStep ? 'Record your observations and proposed actions based on this analysis.' : 'Review the report information before generating it.'}
       actions={<Button variant="secondary" onClick={() => dispatch({ type: findingsStep ? 'back' : 'findings' })}>{findingsStep ? 'Back to Analysis' : 'Back to Findings'}</Button>} />
+    <WorkflowStepper current={findingsStep ? 'findings' : 'preparation'} />
     <ReportAnalysisSummary result={result} analysis={analysis} />
     <Card title={findingsStep ? 'Your observations' : 'Report information'} className="mt-6">
       <p className="mb-5 text-sm text-muted">Your entries are kept while moving between these steps. Leaving Analysis or refreshing the page clears this unsaved work.</p>
