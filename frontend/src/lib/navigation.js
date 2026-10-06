@@ -67,8 +67,8 @@ export const NAV_ITEMS = [
   { path: '/response-tasks', label: 'Response Tasks', icon: Bell, roles: [ROLES.RANGER], useCase: 'UC01', ready: true },
 
   // UC02 — Data Analyst, Park Manager (receives shared reports)
-  { path: '/analytics', label: 'Analysis', icon: BarChart3, roles: [ROLES.DATA_ANALYST], useCase: 'UC02' },
-  { path: '/reports', label: 'Reports', icon: FileText, roles: [ROLES.DATA_ANALYST, ROLES.PARK_MANAGER], useCase: 'UC02' },
+  { path: '/analytics', label: 'Analysis', icon: BarChart3, roles: [ROLES.DATA_ANALYST], useCase: 'UC02', ready: true },
+  { path: '/reports', label: 'Reports', icon: FileText, roles: [ROLES.DATA_ANALYST, ROLES.PARK_MANAGER], useCase: 'UC02', ready: true },
 ]
 
 export const navItemsFor = (role) => NAV_ITEMS.filter((item) => item.roles.includes(role))

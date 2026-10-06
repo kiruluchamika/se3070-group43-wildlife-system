@@ -1,6 +1,12 @@
 const { createTokenService } = require('./shared/security/token-service')
 const { createPasswordHasher } = require('./shared/security/password-hasher')
 const { createAuthenticate } = require('./shared/middleware/authenticate')
+const { createAnalyticsRepository } = require('./modules/analytics/analytics.repository')
+const { createAnalyticsService } = require('./modules/analytics/analytics.service')
+const { createAnalyticsRouter } = require('./modules/analytics/analytics.routes')
+const { createReportRepository } = require('./modules/analytics/conservation-report.repository')
+const { createReportService } = require('./modules/analytics/conservation-report.service')
+const { createReportRouter } = require('./modules/analytics/conservation-report.routes')
 
 const { createUserRepository } = require('./modules/users/user.repository')
 const { createAuthService } = require('./modules/users/auth.service')
@@ -38,6 +44,7 @@ const { createConflictRouter, createResponseTaskRouter } = require('./modules/co
 function loadModels() {
   return {
     User: require('./modules/users/user.model'),
+    ConservationReport: require('./modules/analytics/conservation-report.model'),
     Park: require('./modules/parks/park.model'),
     Zone: require('./modules/parks/zone.model'),
     RangerTeam: require('./modules/teams/ranger-team.model'),
@@ -55,6 +62,8 @@ function loadModels() {
 
 function createRepositories(models) {
   return {
+    analyticsRepository: createAnalyticsRepository(models),
+    reportRepository: createReportRepository(models.ConservationReport),
     userRepository: createUserRepository(models.User),
     parkRepository: createParkRepository(models),
     teamRepository: createTeamRepository(models.RangerTeam),
@@ -84,11 +93,13 @@ function createContainer({
   const authenticate = createAuthenticate({ tokenService })
 
   const services = {
+    analyticsService: createAnalyticsService({ ...repositories, clock }),
     authService: createAuthService({ userRepository: repositories.userRepository, tokenService, passwordHasher }),
     teamService: createTeamService({ teamRepository: repositories.teamRepository }),
     alertService: createAlertService({ alertRepository: repositories.alertRepository, clock }),
     notificationService: createNotificationService({ notificationRepository: repositories.notificationRepository, clock })
   }
+  services.reportService = createReportService({ ...repositories, clock, transactionRunner, notificationService: services.notificationService })
 
   // UC04 — Monitor Patrol Coverage and Allocate Resources (HETTIGE K.C.)
   const patrolDependencies = {
@@ -136,6 +147,8 @@ function createContainer({
   const conflictController = createConflictController({ ...services, conflictAccess })
 
   const routes = [
+    { path: '/api/reports', router: createReportRouter({ reportService: services.reportService, authenticate }) },
+    { path: '/api/analytics', router: createAnalyticsRouter({ analyticsService: services.analyticsService, authenticate }) },
     { path: '/api/auth', router: createAuthRouter({ authController: createAuthController(services), authenticate }) },
     { path: '/api/parks', router: createParkRouter({ parkRepository: repositories.parkRepository, authenticate }) },
     { path: '/api/teams', router: createTeamRouter({ teamService: services.teamService, authenticate }) },
