@@ -53,12 +53,12 @@ describe('report snapshot contract', () => {
     body.status = status
     expect(saveReportBody.safeParse(body).success).toBe(false)
   })
-  it('rejects mismatched parks, dates, invented species and source totals', () => {
+  it('rejects mismatched parks, dates, invalid species and source totals', () => {
     const body = input()
     for (const mutate of [
       (copy) => { copy.snapshot.context.park.id = otherAuthor },
       (copy) => { copy.snapshot.context.filters.startDate = '2026-10-02' },
-      (copy) => { copy.snapshot.context.filters.species = 'elephant' },
+      (copy) => { copy.snapshot.context.filters.species = 'x'.repeat(81) },
       (copy) => { copy.snapshot.statistics.totalEventRecords = 50 },
       (copy) => { copy.snapshot.analysis.trends.buckets[0].alerts = 50 },
       (copy) => { copy.snapshot.analysis.coverage.zones[0].references[0].source = 'alerts' },
@@ -200,6 +200,20 @@ describe.skipIf(!hasTestDatabase)('UC02 persisted draft/finalized reports', () =
     expect(html).not.toContain('sharedWith')
     expect(await db.models.ConservationReport.findById(report.id).lean()).toEqual(before)
     expect((await request(app).get(`/api/reports/${report.id}/export`).set('Authorization', auth(otherAuthor))).status).toBe(404)
+  })
+  it('preserves species in saved snapshots, draft re-analysis and export context', async () => {
+    const body = input('draft')
+    body.snapshot.context.filters.species = 'test species'
+    const draft = (await save(body)).body.report
+    expect(draft.snapshot.context.filters.species).toBe('test species')
+    const restored = await request(app).get(`/api/reports/${draft.id}/reanalysis`).set('Authorization', auth())
+    expect(restored.body.draft.filters.species).toBe('test species')
+    const { exportReport } = require('./conservation-report.export')
+    expect(exportReport({ ...draft, status: 'finalized', finalizedAt: new Date() })).toContain('test species')
+    const legacy = input('draft')
+    delete legacy.snapshot.context.filters.species
+    const old = (await save(legacy)).body.report
+    expect(old.snapshot.context.filters.species).toBe('')
   })
   it.each(['draft', 'finalized'])('persists %s with server ownership, timestamps and the exact analysis snapshot', async (status) => {
     const body = input(status)

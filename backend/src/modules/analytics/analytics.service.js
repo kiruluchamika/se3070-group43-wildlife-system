@@ -46,7 +46,8 @@ function createAnalyticsService({ analyticsRepository, parkRepository, userRepos
     async options(user) {
       const account = await analyst(user)
       const parks = await parkRepository.listParks()
-      return { parks: parks.filter((park) => !account.park || toId(park._id) === toId(account.park)), incidentTypes: INCIDENT_TYPES, species: [] }
+      const permitted = parks.filter((park) => !account.park || toId(park._id) === toId(account.park))
+      return { parks: permitted, incidentTypes: INCIDENT_TYPES, species: await analyticsRepository.speciesOptions(permitted.map((park) => park._id)) }
     },
     async retrieve(filters, user) {
       const account = await analyst(user)
@@ -69,11 +70,11 @@ function createAnalyticsService({ analyticsRepository, parkRepository, userRepos
         records,
         freshness: inspectFreshness(records),
         limitations: [
-          'Species filtering is unavailable because current source models have no species field.',
+          'Species filters explicitly recorded species on alerts. Records without species are included only with All species.',
           'Alerts use their creation time; conflicts use occurredAt; patrols overlap the selected period.',
           'Incident type filters alerts and conflicts only. Patrols and zones remain coverage context.',
           'Alerts and conflicts remain separate sources and may describe the same event.',
-          'UC03 wildlife incidents are not connected. No analysis or coverage calculations have run.'
+          'UC03 actionable incidents contribute through their alerts; raw sightings are not additional event records.'
         ]
       }
     }

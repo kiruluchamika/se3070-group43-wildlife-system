@@ -11,7 +11,7 @@ export function ReportAnalysisSummary({ result, analysis }) {
       <div><dt className="text-muted">Park</dt><dd className="font-semibold text-fg">{context.park.name}</dd></div>
       <div><dt className="text-muted">Analysis period</dt><dd className="font-semibold text-fg">{context.filters.startDate} to {context.filters.endDate} · Sri Lanka time</dd></div>
       <div><dt className="text-muted">Incident type</dt><dd className="font-semibold text-fg">{context.filters.incidentType ? humanize(context.filters.incidentType) : 'All incident types'}</dd></div>
-      <div><dt className="text-muted">Species</dt><dd className="text-fg">Not available from current sources</dd></div>
+      <div><dt className="text-muted">Species</dt><dd className="text-fg">{context.filters.species || 'All species'}</dd></div>
       <div><dt className="text-muted">Event records</dt><dd className="font-semibold text-fg">{number(statistics.totalEventRecords)} ({number(statistics.alertRecords)} alerts, {number(statistics.conflictRecords)} conflicts)</dd></div>
       <div><dt className="text-muted">Zones represented</dt><dd className="font-semibold text-fg">{number(statistics.representedZones)}</dd></div>
       <div><dt className="text-muted">Trends</dt><dd className="text-fg">{trends.status === 'error' ? 'Unavailable: calculation failed' : trends.status === 'empty' ? 'No trend records' : `${trends.buckets.length} ${trends.unit === 'day' ? 'daily' : 'monthly'} intervals; ${trends.buckets.reduce((sum, bucket) => sum + bucket.alerts + bucket.conflicts, 0)} contributing event records`}</dd></div>

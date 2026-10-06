@@ -13,8 +13,7 @@ import AnalysisResultsPage from './AnalysisResultsPage'
 import { FreshnessDialog } from '../components/FreshnessDialog'
 import { useAnalysisRetrieval } from '../hooks/useAnalysisRetrieval'
 
-// Empty species/type values mean no restriction. Future option APIs can supply
-// these controls without depending on UC03's eventual storage schema.
+// Empty species/type values mean no restriction, including legacy records.
 const INITIAL_FILTERS = { parkId: '', startDate: '', endDate: '', species: '', incidentType: '' }
 
 export default function AnalysisPage() {
@@ -34,7 +33,7 @@ export default function AnalysisPage() {
 export function AnalysisFiltersPage({ initialFilters, sourceDraft, onCancelReanalysis } = {}) {
   const parksQuery = useApiQuery('/analytics/options')
   const parks = parksQuery.data?.parks ?? []
-  const [filters, setFilters] = useState(initialFilters ? { ...initialFilters } : INITIAL_FILTERS)
+  const [filters, setFilters] = useState({ ...INITIAL_FILTERS, ...initialFilters })
   const [dateError, setDateError] = useState(null)
   const retrieval = useAnalysisRetrieval()
   const busy = retrieval.phase === 'retrieving'
@@ -111,8 +110,11 @@ export function AnalysisFiltersPage({ initialFilters, sourceDraft, onCancelReana
                 {(props) => <Input {...props} name="endDate" type="date" required value={filters.endDate} onChange={changeFilter('endDate')} />}
               </Field>
             </fieldset>
-            <Field label="Species" hint="Species selection will be available when the data source is connected.">
-              {(props) => <Select {...props} name="species" value={filters.species} disabled><option value="">All species</option></Select>}
+            <Field label="Species" hint="Filters recorded species on alerts. All species includes unspecified records; patrol coverage is unchanged.">
+              {(props) => <Select {...props} name="species" value={filters.species} onChange={changeFilter('species')} disabled={!parksQuery.data}><option value="">All species</option>
+                {filters.species && !(parksQuery.data?.species ?? []).some((item) => item.id === filters.species) && <option value={filters.species}>{filters.species}</option>}
+                {(parksQuery.data?.species ?? []).map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+              </Select>}
             </Field>
             <Field label="Incident type" hint="Filters alerts and conflicts. Patrol records remain available as coverage context.">
               {(props) => <Select {...props} name="incidentType" value={filters.incidentType} onChange={changeFilter('incidentType')} disabled={!parksQuery.data}>

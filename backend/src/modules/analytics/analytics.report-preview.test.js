@@ -116,3 +116,15 @@ it('refuses oversized save payloads without truncating report information', () =
   expect(() => saveBody(data, 'id', 'draft')).toThrow('save size limit')
   expect(data.findings.length).toBe(950001)
 })
+
+it('retains species in preview snapshots and renders legacy reports as All species', () => {
+  const data = handoff()
+  data.context.filters.species = 'test species'
+  expect(snapshot(data).context.filters.species).toBe('test species')
+  const html = renderToStaticMarkup(React.createElement(Content, { report: { ...data, snapshot: snapshot(data) } }))
+  expect(html).toContain('test species')
+  delete data.context.filters.species
+  const legacy = renderToStaticMarkup(React.createElement(Content, { report: { ...data, snapshot: snapshot(data) } }))
+  expect(legacy).toContain('All species')
+})
+

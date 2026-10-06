@@ -1,3 +1,4 @@
+const { speciesValue } = require('../../shared/species')
 const { z } = require('zod')
 const { objectId } = require('../../shared/validation')
 const { ALERT_TYPES } = require('../alerts/alert.model')
@@ -13,8 +14,7 @@ const retrievalQuery = z.object({
   parkId: objectId('Park'),
   startDate: calendarDate,
   endDate: calendarDate,
-  // Current source models have no species field. Never silently ignore it.
-  species: z.literal('').optional().default(''),
+  species: speciesValue.optional().default(''),
   incidentType: z.enum(['', ...INCIDENT_TYPES]).optional().default('')
 }).refine((value) => value.startDate <= value.endDate, { message: 'End date must be on or after the start date.', path: ['endDate'] })
 

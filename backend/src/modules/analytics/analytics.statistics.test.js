@@ -93,3 +93,13 @@ describe('Stage 3 source-aware statistics', () => {
     expect(calculateStatistics(input).freshness).toEqual(input.freshness)
   })
 })
+
+it('retains species context without changing statistics formulas and tolerates legacy absence', () => {
+  const input = dataset()
+  input.filters.species = 'test species'
+  const result = calculateStatistics(input)
+  expect(result.context.filters.species).toBe('test species')
+  expect(result.statistics.totalEventRecords).toBe(3)
+  delete input.filters.species
+  expect(calculateStatistics(input).status).not.toBe('error')
+})

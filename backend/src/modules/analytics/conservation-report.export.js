@@ -15,7 +15,7 @@ function exportReport(report) {
     `<h1>${escape(report.title)}</h1>`, text('Status: Finalized'),
     table(['Analysis context', 'Value'], [
       ['Park', context.park.name], ['Period (Sri Lanka time)', `${context.filters.startDate} to ${context.filters.endDate}`],
-      ['Incident type', context.filters.incidentType || 'All incident types'], ['Species', 'Not available from current sources'],
+      ['Incident type', context.filters.incidentType || 'All incident types'], ['Species', context.filters.species || 'All species'],
       ['Retrieved at (UTC)', context.retrievedAt], ['Finalized at (UTC)', new Date(report.finalizedAt).toISOString()],
     ]),
     '<h2>Statistics</h2>', table(['Measure', 'Records'], [

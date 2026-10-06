@@ -1,3 +1,4 @@
+const { normalizeSpecies } = require('../../shared/species')
 const mongoose = require('mongoose')
 const { INCIDENT_SEVERITIES, INCIDENT_TYPES } = require('./incident.constants')
 
@@ -22,6 +23,7 @@ const wildlifeIncidentSchema = new mongoose.Schema(
     zone: { type: ObjectId, ref: 'Zone', index: true },
     type: { type: String, enum: INCIDENT_TYPES, required: true, index: true },
     severity: { type: String, enum: INCIDENT_SEVERITIES, required: true },
+    species: { type: String, maxlength: 80, set: normalizeSpecies },
     description: { type: String, required: true, trim: true, maxlength: 1000 },
     location: locationSchema,
     locationNote: { type: String, trim: true, maxlength: 200 },
@@ -34,6 +36,8 @@ const wildlifeIncidentSchema = new mongoose.Schema(
   },
   { timestamps: true }
 )
+
+wildlifeIncidentSchema.index({ park: 1, species: 1 })
 
 wildlifeIncidentSchema.index({ ranger: 1, observedAt: -1 })
 wildlifeIncidentSchema.index({ park: 1, type: 1, observedAt: -1 })

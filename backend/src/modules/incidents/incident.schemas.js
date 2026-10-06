@@ -1,3 +1,4 @@
+const { speciesValue } = require('../../shared/species')
 const { z } = require('zod')
 const { objectId } = require('../../shared/validation')
 const { INCIDENT_SEVERITIES, INCIDENT_TYPES } = require('./incident.constants')
@@ -25,6 +26,7 @@ const submitBody = z
     parkId: objectId('Park'),
     zoneId: objectId('Zone').optional(),
     type: z.enum(INCIDENT_TYPES, { error: 'Choose the type of incident.' }),
+    species: speciesValue.optional(),
     severity: z.enum(INCIDENT_SEVERITIES, { error: 'Choose a valid urgency.' }).optional(),
     description: z
       .string({ error: 'A description is required.' })

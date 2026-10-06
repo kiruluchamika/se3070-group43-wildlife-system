@@ -24,7 +24,7 @@ export function calculateStatistics(dataset) {
     if (!filters || !idOf(park?.id) || filters.parkId !== park.id ||
       typeof park.name !== 'string' || typeof filters.startDate !== 'string' ||
       typeof filters.endDate !== 'string' || typeof filters.incidentType !== 'string' ||
-      filters.species !== '' || !period || !Array.isArray(zones)) {
+      (filters.species != null && (typeof filters.species !== 'string' || filters.species.length > 80)) || !period || !Array.isArray(zones)) {
       throw new Error('Invalid analysis context')
     }
     const alerts = sourceRecords(records.alerts)

@@ -58,4 +58,34 @@ describe.skipIf(!hasTestDatabase)('UC02 MongoDB source retrieval', () => {
     expect(filtered.statistics.totalEventRecords).toBe(1)
     expect(filtered.context.filters.incidentType).toBe('snare')
   })
+  it('filters species without changing patrol context and keeps unspecified legacy records in All', async () => {
+    const { Park, Alert, WildlifeIncident, PatrolRecord } = db.models
+    const park = await Park.create({ code: 'SPECIES', name: 'Species test park' })
+    const other = await Park.create({ code: 'OTHER', name: 'Other park' })
+    const from = new Date('2026-10-01T00:00:00Z'), until = new Date('2026-10-02T00:00:00Z')
+    const incident = await WildlifeIncident.create({ clientId: 'species-test', payloadFingerprint: 'test', reference: 'SPECIES',
+      park: park._id, ranger: park._id, type: 'snare', severity: 'high', description: 'Explicitly identified animal',
+      species: ' Test  Species ', observedAt: from, deviceCreatedAt: from, receivedAt: from })
+    expect(incident.species).toBe('test species')
+    await WildlifeIncident.create({ clientId: 'other-test', payloadFingerprint: 'test', reference: 'OTHER',
+      park: other._id, ranger: other._id, type: 'snare', severity: 'high', description: 'Another park animal',
+      species: 'private species', observedAt: from, deviceCreatedAt: from, receivedAt: from })
+    const base = { park: park._id, type: 'snare', severity: 'high', title: 'Species evidence', createdAt: from }
+    await Alert.create([{ ...base, species: incident.species, source: 'ranger-incident', sourceRef: String(incident._id) }, base,
+      { ...base, species: 'other species' }, { ...base, park: other._id, species: incident.species }])
+    await PatrolRecord.create({ park: park._id, zone: park._id, team: park._id, startTime: from, syncStatus: 'pending' })
+    const repository = createAnalyticsRepository(db.models)
+    expect(await repository.speciesOptions([park._id])).toEqual([{ id: 'test species', label: 'test species' }])
+    const selected = await repository.retrieve({ parkId: String(park._id), from, until, species: 'test species' })
+    expect(selected.alerts).toHaveLength(1)
+    expect(selected.alerts[0].species).toBe('test species')
+    expect(selected.conflicts).toEqual([])
+    expect(selected.patrolRecords).toHaveLength(1)
+    const all = await repository.retrieve({ parkId: String(park._id), from, until })
+    expect(all.alerts).toHaveLength(3)
+    const missing = await repository.retrieve({ parkId: String(park._id), from, until, species: 'absent' })
+    expect(missing.alerts).toEqual([])
+    expect(missing.patrolRecords).toHaveLength(1)
+  })
+
 })

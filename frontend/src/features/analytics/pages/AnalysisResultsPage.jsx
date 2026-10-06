@@ -55,7 +55,7 @@ export default function AnalysisResultsPage({ dataset, onBack, onRetry }) {
         <dl className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
           <Fact label="Park">{context.park.name}</Fact>
           <Fact label="Analysis period">{context.filters.startDate} to {context.filters.endDate}<span className="mt-1 block text-xs font-normal text-muted">Inclusive dates · Sri Lanka time</span></Fact>
-          <Fact label="Species">Not available<span className="mt-1 block text-xs font-normal text-muted">Species filtering is not supported by current sources.</span></Fact>
+          <Fact label="Species">{context.filters.species || 'All species'}</Fact>
           <Fact label="Incident type">{context.filters.incidentType ? humanize(context.filters.incidentType) : 'All incident types'}</Fact>
         </dl>
       </Card>

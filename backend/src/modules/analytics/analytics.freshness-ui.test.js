@@ -21,7 +21,7 @@ vi.mock('../../../../frontend/node_modules/react/index.js', async (importOrigina
   }
 })
 vi.mock('../../../../frontend/src/lib/api.js', () => ({ api: { get: harness.get }, toQuery: (filters) => `?${new URLSearchParams(filters)}` }))
-vi.mock('../../../../frontend/src/hooks/useApiQuery.js', () => ({ useApiQuery: () => ({ data: { parks: [{ id: 'park', name: 'Yala' }] } }) }))
+vi.mock('../../../../frontend/src/hooks/useApiQuery.js', () => ({ useApiQuery: () => ({ data: { parks: [{ id: 'park', name: 'Yala' }], species: [{ id: 'test species', label: 'test species' }] } }) }))
 
 let AnalysisPage, AnalysisResultsPage, FreshnessDialog
 beforeAll(async () => {
@@ -131,3 +131,22 @@ it('freshness Cancel during re-analysis returns to editable restored filters wit
   expect(harness.slots[0]).toEqual(original)
   expect(harness.slots[2].dataset).toBeNull()
 })
+
+it('enables species and keeps it through retrieval and freshness cancellation', async () => {
+  function field(node) {
+    if (!node || typeof node !== 'object') return undefined
+    if (node.props?.label === 'Species') return node
+    for (const child of [node.props?.children].flat(Infinity)) {
+      const result = field(child)
+      if (result) return result
+    }
+  }
+  const select = field(render()).props.children({})
+  expect(select.props.disabled).toBe(false)
+  select.props.onChange({ target: { value: 'test species' } })
+  await retrieve(true)
+  expect(harness.get.mock.calls[0][0]).toContain('species=test+species')
+  find(render(), FreshnessDialog).props.onCancel()
+  expect(field(render()).props.children({}).props.value).toBe('test species')
+})
+

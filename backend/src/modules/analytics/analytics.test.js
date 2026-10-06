@@ -20,7 +20,7 @@ function setup(account = { _id: userId, role: 'data-analyst', park: parkId }) {
       findParkById: vi.fn(async () => ({ _id: parkId, name: 'Yala' })),
       listZones: vi.fn(async () => [])
     },
-    analyticsRepository: { retrieve: vi.fn(async () => empty()) }
+    analyticsRepository: { speciesOptions: vi.fn(async () => []), retrieve: vi.fn(async () => empty()) }
   }
   const service = createAnalyticsService({ ...repositories, clock: () => new Date('2026-10-05T00:00:00Z') })
   const tokens = createTokenService({ secret: 'analytics-test-secret', expiresIn: '1h' })
@@ -37,7 +37,7 @@ describe('UC02 retrieval validation and date semantics', () => {
   })
   it.each([
     { startDate: '2026-02-30' }, { endDate: '2026-09-30' }, { parkId: 'bad' },
-    { species: 'elephant' }, { incidentType: 'invented' }, { startDate: 'today' }
+    { species: 'x'.repeat(81) }, { incidentType: 'invented' }, { startDate: 'today' }
   ])('rejects invalid or unsupported filters %j', (override) => {
     expect(retrievalQuery.safeParse({ ...filters, ...override }).success).toBe(false)
   })
@@ -129,4 +129,18 @@ describe('UC02 authenticated retrieval HTTP flow', () => {
     expect(result.status).toBe(400)
     expect(analyticsRepository.retrieve).not.toHaveBeenCalled()
   })
+})
+
+it('scopes species options to permitted parks and rejects unauthorized species retrieval', async () => {
+  const { app, token, analyticsRepository } = setup()
+  analyticsRepository.speciesOptions.mockResolvedValue([{ id: 'test species', label: 'test species' }])
+  const options = await request(app).get('/api/analytics/options').set('Authorization', token())
+  expect(options.body.species).toEqual([{ id: 'test species', label: 'test species' }])
+  expect(analyticsRepository.speciesOptions).toHaveBeenCalledWith([parkId])
+  const denied = await request(app).get('/api/analytics').query({ ...filters, parkId: otherPark, species: 'test species' }).set('Authorization', token())
+  expect(denied.status).toBe(403)
+  expect(analyticsRepository.retrieve).not.toHaveBeenCalled()
+  const allowed = await request(app).get('/api/analytics').query({ ...filters, species: ' Test  Species ' }).set('Authorization', token())
+  expect(allowed.status).toBe(200)
+  expect(allowed.body.filters.species).toBe('test species')
 })
