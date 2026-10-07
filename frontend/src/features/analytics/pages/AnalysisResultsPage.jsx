@@ -1,3 +1,4 @@
+import { ComparisonResultsPage } from './ComparisonResultsPage'
 import { WorkflowStepper } from '../components/WorkflowStepper'
 import { BarChart3, FileText, MapPinned, MessageSquareWarning, ShieldAlert } from 'lucide-react'
 import { useCallback, useMemo, useReducer } from 'react'
@@ -20,15 +21,17 @@ function Fact({ label, children }) {
     <dd className="mt-1 text-sm font-semibold text-fg">{children}</dd></div>
 }
 
-export default function AnalysisResultsPage({ dataset, onBack, onRetry }) {
+export default function AnalysisResultsPage({ dataset, onBack, onRetry, embedded = false }) {
   const result = useMemo(() => calculateStatistics(dataset), [dataset])
   const analysis = useMemo(() => calculateVisualizations(result, dataset), [result, dataset])
   const [supporting, dispatch] = useReducer(supportingReducer, initialSupportingState)
   const [report, reportDispatch] = useReducer(reportPreparationReducer, initialReportState)
   const closeSupporting = useCallback(() => dispatch({ type: 'close' }), [])
-  const header = <><PageHeader eyebrow="UC02 · Data Analyst" title="Analysis Results"
+  const header = !embedded && <><PageHeader eyebrow="UC02 · Data Analyst" title="Analysis Results"
     description="Statistics from the available records matching your selected filters."
     actions={<Button variant="secondary" onClick={onBack}>Back to Filters</Button>} /><WorkflowStepper current="results" /></>
+
+  if (dataset.datasets) return <ComparisonResultsPage dataset={dataset} onBack={onBack} onRetry={onRetry} ParkResults={AnalysisResultsPage} />
 
   if (result.status === 'error') {
     return <>{header}<Card><ErrorState title="Analysis unavailable" message={result.message} onRetry={onRetry} /></Card></>
@@ -89,10 +92,10 @@ export default function AnalysisResultsPage({ dataset, onBack, onRetry }) {
       <div className="mt-6 flex flex-wrap items-center gap-3">
         <Button variant="secondary" onClick={() => dispatch({ type: 'open' })} aria-haspopup="dialog">View Supporting Records</Button>
       </div>
-      <div className="mt-6 flex flex-col gap-3 border-t border-line pt-5 sm:flex-row sm:items-center sm:justify-between">
+      {!embedded && <div className="mt-6 flex flex-col gap-3 border-t border-line pt-5 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-muted">Record findings and recommendations before preparing your report.</p>
         <Button icon={FileText} onClick={() => reportDispatch({ type: 'findings' })}>Continue to Report</Button>
-      </div>
+      </div>}
       {supporting.open && <SupportingRecordsModal result={result} dataset={dataset} analysis={analysis}
         state={supporting} dispatch={dispatch} onClose={closeSupporting} />}
     </>
