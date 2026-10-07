@@ -2,19 +2,18 @@ import { Check } from 'lucide-react'
 import { cn } from '../../../lib/cn'
 
 const STAGES = [
-  ['filters', 'Filters'],
-  ['results', 'Analysis Results'],
+  ['filters', 'Analysis'],
+  ['results', 'Results'],
   ['findings', 'Findings & Recommendations'],
-  ['preparation', 'Report Preparation'],
+  ['preparation', 'Preparation'],
   ['preview', 'Preview'],
-  ['saved', 'Saved Report'],
 ]
 
 /** Visual progress only: existing page actions remain the navigation controls. */
 export function WorkflowStepper({ current }) {
   const active = STAGES.findIndex(([stage]) => stage === current)
   if (active < 0) return null
-  return <ol aria-label="Analysis report progress" className="mb-6 grid min-w-0 grid-cols-2 gap-3 rounded-2xl border border-line bg-surface-2 p-4 sm:grid-cols-3 xl:grid-cols-6">
+  return <ol aria-label="Analysis report progress" className="mb-6 grid min-w-0 grid-cols-2 gap-3 rounded-2xl border border-line bg-surface-2 p-4 sm:grid-cols-3 xl:grid-cols-5">
     {STAGES.map(([stage, label], index) => {
       const completed = index < active
       const selected = index === active

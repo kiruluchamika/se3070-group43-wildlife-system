@@ -175,13 +175,13 @@ it('preserves status and page when opening a draft and returning to the list', (
   expect(harness.setParams).toHaveBeenLastCalledWith({ status: 'draft', page: '2' })
 })
 
-it('shows Saved Report progress only for analyst report details', () => {
+it('keeps creation progress off saved Draft and Finalized report details', () => {
   const progress = (tree) => find(tree, (node) => node.type?.name === 'WorkflowStepper')
   expect(progress(ReportsPage())).toBeUndefined()
   harness.params = new URLSearchParams('reportId=draft-id')
   for (const status of ['draft', 'finalized']) {
     harness.query = { data: { report: report(status) } }
-    expect(progress(ReportsPage()).props.current).toBe('saved')
+    expect(progress(ReportsPage())).toBeUndefined()
   }
   harness.role = 'park-manager'
   expect(progress(ReportsPage())).toBeUndefined()

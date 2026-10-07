@@ -7,19 +7,20 @@ beforeAll(async () => {
 })
 afterAll(() => vi.unstubAllGlobals())
 
-it.each(['filters', 'results', 'findings', 'preparation', 'preview', 'saved'])('shows accessible visual progress for %s without navigation', (current) => {
-  const stages = ['filters', 'results', 'findings', 'preparation', 'preview', 'saved']
+it.each(['filters', 'results', 'findings', 'preparation', 'preview'])('shows accessible visual progress for %s without navigation', (current) => {
+  const stages = ['filters', 'results', 'findings', 'preparation', 'preview']
   const active = stages.indexOf(current)
   const html = renderToStaticMarkup(React.createElement(WorkflowStepper, { current }))
-  expect(html.match(/<li[ >]/g)).toHaveLength(6)
+  expect(html.match(/<li[ >]/g)).toHaveLength(5)
   expect(html.match(/aria-current="step"/g)).toHaveLength(1)
   expect(html.match(/, completed/g) ?? []).toHaveLength(active)
-  expect(html.match(/, upcoming/g) ?? []).toHaveLength(5 - active)
-  for (const label of ['Filters', 'Analysis Results', 'Findings &amp; Recommendations', 'Report Preparation', 'Preview', 'Saved Report']) expect(html).toContain(label)
+  expect(html.match(/, upcoming/g) ?? []).toHaveLength(4 - active)
+  for (const label of ['Analysis', 'Results', 'Findings &amp; Recommendations', 'Preparation', 'Preview']) expect(html).toContain(label)
   expect(html).not.toMatch(/<(button|a)\b|tabindex=/i)
   expect(html).toContain('Analysis report progress')
+  expect(html).not.toContain('Saved Report')
 })
 
-it('does not show workflow progress for unrelated stages', () => {
-  expect(renderToStaticMarkup(React.createElement(WorkflowStepper, { current: 'dashboard' }))).toBe('')
+it.each(['dashboard', 'saved'])('does not show creation progress for %s', (current) => {
+  expect(renderToStaticMarkup(React.createElement(WorkflowStepper, { current }))).toBe('')
 })
