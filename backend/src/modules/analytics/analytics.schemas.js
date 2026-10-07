@@ -10,13 +10,21 @@ const calendarDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD dat
   return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value
 }, 'Enter a valid calendar date.')
 
-const retrievalQuery = z.object({
-  parkId: objectId('Park'),
+const commonFilters = {
   startDate: calendarDate,
   endDate: calendarDate,
   species: speciesValue.optional().default(''),
   incidentType: z.enum(['', ...INCIDENT_TYPES]).optional().default('')
-}).refine((value) => value.startDate <= value.endDate, { message: 'End date must be on or after the start date.', path: ['endDate'] })
+}
+const validDates = (value) => value.startDate <= value.endDate
+const dateError = { message: 'End date must be on or after the start date.', path: ['endDate'] }
+const singleParkQuery = z.object({ parkId: objectId('Park'), ...commonFilters }).strict().refine(validDates, dateError)
+const comparisonQuery = z.object({
+  parkIds: z.preprocess((value) => typeof value === 'string' ? value.split(',') : value,
+    z.array(objectId('Park')).min(2).max(20).refine((ids) => new Set(ids).size === ids.length, 'Choose distinct parks.')),
+  ...commonFilters,
+}).strict().refine(validDates, dateError)
+const retrievalQuery = z.union([singleParkQuery, comparisonQuery])
 
 function dateWindow({ startDate, endDate }) {
   // Date-only selections are inclusive calendar days in the parks' timezone.
@@ -26,4 +34,4 @@ function dateWindow({ startDate, endDate }) {
   }
 }
 
-module.exports = { retrievalQuery, dateWindow, INCIDENT_TYPES }
+module.exports = { retrievalQuery, singleParkQuery, comparisonQuery, dateWindow, INCIDENT_TYPES }

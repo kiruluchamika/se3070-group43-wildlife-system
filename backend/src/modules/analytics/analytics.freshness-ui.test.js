@@ -1,6 +1,6 @@
 // Exercise the actual page and retrieval callbacks with a minimal hook-state
 // harness. This checks transition wiring, not browser effects or dialog layout.
-const harness = vi.hoisted(() => ({ slots: [], cursor: 0, get: vi.fn() }))
+const harness = vi.hoisted(() => ({ slots: [], cursor: 0, get: vi.fn(), parks: [] }))
 vi.mock('../../../../frontend/node_modules/react/index.js', async (importOriginal) => {
   const actual = await importOriginal()
   return { ...actual,
@@ -21,7 +21,7 @@ vi.mock('../../../../frontend/node_modules/react/index.js', async (importOrigina
   }
 })
 vi.mock('../../../../frontend/src/lib/api.js', () => ({ api: { get: harness.get }, toQuery: (filters) => `?${new URLSearchParams(filters)}` }))
-vi.mock('../../../../frontend/src/hooks/useApiQuery.js', () => ({ useApiQuery: () => ({ data: { parks: [{ id: 'park', name: 'Yala' }], species: [{ id: 'test species', label: 'test species' }] } }) }))
+vi.mock('../../../../frontend/src/hooks/useApiQuery.js', () => ({ useApiQuery: () => ({ data: { parks: harness.parks, species: [{ id: 'test species', label: 'test species' }] } }) }))
 
 let AnalysisPage, AnalysisResultsPage, FreshnessDialog
 beforeAll(async () => {
@@ -33,6 +33,7 @@ beforeAll(async () => {
 afterAll(() => vi.unstubAllGlobals())
 const filters = { parkId: 'park', startDate: '2026-10-01', endDate: '2026-10-07', species: '', incidentType: 'fire' }
 beforeEach(() => {
+  harness.parks = [{ id: 'park', name: 'Yala' }]
   harness.slots = [{ ...filters }]
   harness.get.mockReset()
 })
@@ -64,6 +65,51 @@ it('blocks reversed dates and unavailable park selections before retrieval', () 
   harness.slots[0] = { ...filters, parkId: 'removed-park' }
   find(render(), 'form').props.onSubmit({ preventDefault() {} })
   expect(harness.get).not.toHaveBeenCalled()
+})
+
+it('restores all comparison parks and retains them through freshness Cancel and a failed retrieval retry', async () => {
+  harness.parks.push({ id: 'second', name: 'Second Park' })
+  const selected = { ...filters, parkId: '', parkIds: ['park', 'second'], species: 'test species' }
+  const props = { initialFilters: selected, sourceDraft: { id: 'draft', title: 'Comparison' } }
+  harness.slots[0] = selected
+  const dataset = { filters: selected, datasets: [], freshness: { requiresConfirmation: true } }
+  harness.get.mockResolvedValueOnce(dataset)
+  find(render(props), 'form').props.onSubmit({ preventDefault() {} })
+  await Promise.resolve()
+  const url = new URL(harness.get.mock.calls[0][0], 'https://test.invalid')
+  expect(url.searchParams.get('parkIds')).toBe('park,second')
+  expect(url.searchParams.has('parkId')).toBe(false)
+  find(render(props), FreshnessDialog).props.onCancel()
+  expect(harness.slots[0]).toEqual(selected)
+  harness.get.mockRejectedValueOnce({ status: 500 })
+  find(render(props), 'form').props.onSubmit({ preventDefault() {} })
+  await Promise.resolve()
+  const { ErrorState } = await import('../../../../frontend/src/components/ui/Feedback.jsx')
+  harness.get.mockResolvedValueOnce(dataset)
+  await find(render(props), ErrorState).props.onRetry()
+  expect(harness.get.mock.calls[2][0]).toBe(harness.get.mock.calls[0][0])
+})
+
+it('allows changing restored comparison selections back to the existing single-park request', async () => {
+  harness.parks.push({ id: 'second', name: 'Second Park' })
+  harness.slots[0] = { ...filters, parkIds: ['park', 'second'] }
+  const checkboxes = []
+  function collect(node) {
+    if (!node || typeof node !== 'object') return
+    if (node.type === 'input' && node.props.type === 'checkbox') checkboxes.push(node)
+    for (const child of [node.props?.children].flat(Infinity)) collect(child)
+  }
+  collect(render())
+  expect(checkboxes).toHaveLength(3)
+  expect(checkboxes.every((checkbox) => checkbox.props.checked)).toBe(true)
+  checkboxes[2].props.onChange()
+  expect(harness.slots[0].parkIds).toEqual(['park'])
+  harness.get.mockResolvedValueOnce({ filters, freshness: { requiresConfirmation: true } })
+  find(render(), 'form').props.onSubmit({ preventDefault() {} })
+  await Promise.resolve()
+  const url = new URL(harness.get.mock.calls[0][0], 'https://test.invalid')
+  expect(url.searchParams.get('parkId')).toBe('park')
+  expect(url.searchParams.has('parkIds')).toBe(false)
 })
 
 it('keeps species and dates after a retrieval failure and retries without exposing server details', async () => {

@@ -47,14 +47,32 @@ export function AnalysisFiltersPage({ initialFilters, sourceDraft, onCancelReana
     }
   }
 
+  function togglePark(id) {
+    setFilters((current) => ({ ...current, parkIds: current.parkIds.includes(id) ? current.parkIds.filter((park) => park !== id) : [...current.parkIds, id] }))
+    setDateError(null)
+    retrieval.reset()
+  }
+
+  function selectedFilters() {
+    if (!filters.parkIds) return { ...filters }
+    const { parkIds, ...common } = filters
+    delete common.parkId
+    return parkIds.length === 1 ? { ...common, parkId: parkIds[0] } : { ...common, parkIds }
+  }
+
   function prepareAnalysis(event) {
     event.preventDefault()
     if (filters.startDate > filters.endDate) {
       setDateError('End date must be on or after the start date.')
       return
     }
-    if (!parks.some((park) => park.id === filters.parkId)) return
-    retrieval.retrieve({ ...filters })
+    if (filters.parkIds) {
+      if (!filters.parkIds.length || filters.parkIds.length > 20 || filters.parkIds.some((id) => !parks.some((park) => park.id === id))) return
+      retrieval.retrieve(selectedFilters())
+    } else {
+      if (!parks.some((park) => park.id === filters.parkId)) return
+      retrieval.retrieve({ ...filters })
+    }
   }
 
   if (retrieval.phase === 'ready') {
@@ -94,7 +112,24 @@ export function AnalysisFiltersPage({ initialFilters, sourceDraft, onCancelReana
         <form onSubmit={prepareAnalysis}>
           <fieldset disabled={busy || retrieval.phase === 'warning'} className="min-w-0" inert={retrieval.phase === 'warning' ? true : undefined}>
           <div className="grid gap-5 sm:grid-cols-2">
-            <Field label="Park" required className="sm:col-span-2">
+            {(parks.length > 1 || filters.parkIds) && <label className="flex items-center gap-3 text-sm text-fg sm:col-span-2">
+              <input type="checkbox" checked={Boolean(filters.parkIds)} onChange={(event) => {
+                setFilters((current) => {
+                  const { parkIds, ...single } = current
+                  return event.target.checked ? { ...single, parkIds: single.parkId ? [single.parkId] : [] } : { ...single, parkId: parkIds?.[0] ?? single.parkId }
+                })
+                retrieval.reset()
+                setDateError(null)
+              }} /> Compare multiple parks
+            </label>}
+            {filters.parkIds ? <fieldset className="sm:col-span-2">
+              <legend className="mb-3 text-sm font-semibold text-fg">Select parks (up to 20)</legend>
+              <div className="grid gap-3 sm:grid-cols-2">{parks.map((park) => <label key={park.id} className="flex items-center gap-3 rounded-xl border border-line p-3 text-sm text-fg">
+                <input type="checkbox" checked={filters.parkIds.includes(park.id)} onChange={() => togglePark(park.id)}
+                  disabled={!filters.parkIds.includes(park.id) && filters.parkIds.length >= 20} />{park.name}
+              </label>)}</div>
+              {!filters.parkIds.length && <p className="mt-2 text-xs text-muted">Select at least one park.</p>}
+            </fieldset> : <Field label="Park" required className="sm:col-span-2">
               {(props) => (
                 <Select {...props} name="parkId" required value={filters.parkId} onChange={changeFilter('parkId')}
                   disabled={parksQuery.loading || Boolean(parksQuery.error) || !parks.length}>
@@ -102,7 +137,7 @@ export function AnalysisFiltersPage({ initialFilters, sourceDraft, onCancelReana
                   {parks.map((park) => <option key={park.id} value={park.id}>{park.name}</option>)}
                 </Select>
               )}
-            </Field>
+            </Field>}
             <fieldset className="grid min-w-0 gap-5 sm:col-span-2 sm:grid-cols-2">
               <legend className="mb-3 text-xs font-semibold tracking-wide text-muted uppercase">Date range</legend>
               <Field label="Start date" required>
@@ -133,7 +168,7 @@ export function AnalysisFiltersPage({ initialFilters, sourceDraft, onCancelReana
           {busy && <p role="status" className="mt-5 text-sm text-muted">Retrieving conservation data…</p>}
           {retrieval.error && <ErrorState title="Unable to retrieve conservation data"
             message={retrieval.error.status >= 500 ? 'Please try again. Your selected filters have been kept.' : retrieval.error.message}
-            onRetry={() => retrieval.retrieve({ ...filters })} />}
+            onRetry={() => retrieval.retrieve(selectedFilters())} />}
         </form>
       </Card>
       <FreshnessDialog open={retrieval.phase === 'warning'} freshness={retrieval.dataset?.freshness}

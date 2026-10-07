@@ -51,6 +51,26 @@ function createAnalyticsService({ analyticsRepository, parkRepository, userRepos
     },
     async retrieve(filters, user) {
       const account = await analyst(user)
+      if (filters.parkIds) {
+        // Authorize and resolve every park before reading any source records.
+        if (account.park && filters.parkIds.some((id) => id !== toId(account.park))) {
+          throw new ForbiddenError('This park is outside your assigned park.', 'OUTSIDE_ASSIGNED_PARK')
+        }
+        const parks = await Promise.all(filters.parkIds.map((id) => parkRepository.findParkById(id)))
+        if (parks.some((park) => !park)) throw new NotFoundError('A selected park was not found.', 'PARK_NOT_FOUND')
+        const { parkIds, ...common } = filters
+        const datasets = []
+        // Sequential bounded reads avoid multiplying database load by park count.
+        for (const parkId of parkIds) datasets.push(await this.retrieve({ ...common, parkId }, user))
+        const sources = datasets.flatMap((data) => data.freshness.sources.map((source) => ({
+          ...source, parkId: toId(data.park._id), label: `${data.park.name}: ${source.label}`,
+        })))
+        const affectedSources = sources.filter((source) => source.status === 'potentially-outdated')
+        return { filters, datasets, retrievedAt: datasets[0].retrievedAt, period: datasets[0].period,
+          freshness: { sources, affectedSources, requiresConfirmation: affectedSources.length > 0,
+            status: affectedSources.length ? 'potentially-outdated' : sources.length && sources.every((source) => source.status === 'synced') ? 'synced' : 'unknown',
+            note: datasets[0].freshness.note } }
+      }
       if (account.park && toId(account.park) !== filters.parkId) {
         throw new ForbiddenError('This park is outside your assigned park.', 'OUTSIDE_ASSIGNED_PARK')
       }
