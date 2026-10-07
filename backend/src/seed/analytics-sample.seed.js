@@ -9,21 +9,44 @@ const localDate = (date) => new Date(new Date(date).getTime() + 5.5 * HOUR).toIS
 
 /** Additive development fixtures only. Existing documents, including samples, never change. */
 async function seedAnalyticsSamples({ models, now = new Date(), transactionRunner = createTransactionRunner() }) {
-  const { Park, Zone, User, RangerTeam, Alert, WildlifeIncident, PatrolRecord } = models
-  const park = await Park.findOne({ code: 'YALA' }).lean()
-  if (!park) throw new Error('Requires the existing YALA park. No data was written.')
-  const zones = await Zone.find({ park: park._id, code: { $in: ['NORTH', 'EAST'] } }).lean()
+  const profiles = [
+    { code: 'YALA', zones: ['NORTH', 'EAST'] },
+    { code: 'SINHARAJA', zones: ['KUDAWA', 'CORE'] },
+  ]
+  // Resolve both parks before any inserts; do not create accounts or permissions.
+  for (const profile of profiles) {
+    profile.park = await models.Park.findOne({ code: profile.code }).lean()
+    if (!profile.park) throw new Error(`Requires the existing ${profile.code} park. No data was written.`)
+    const zones = await models.Zone.countDocuments({ park: profile.park._id, code: { $in: profile.zones } })
+    const ranger = await models.User.exists({ park: profile.park._id, role: 'ranger' })
+    if (zones !== 2 || !ranger) throw new Error(`Requires ${profile.code} ${profile.zones.join('/')} zones and an existing ranger. No data was written.`)
+  }
+  // When extending an older Yala-only seed, align the second park to its stored dates.
+  const anchor = await models.Alert.findById(sampleId(profiles[0].park._id, 'alert-0-0')).lean()
+  const firstDay = anchor ? new Date(`${localDate(anchor.createdAt)}T00:00:00+05:30`)
+    : new Date(new Date(`${localDate(now)}T00:00:00+05:30`).getTime() - 7 * DAY)
+  const parks = await transactionRunner.run(async (session) => {
+    const results = []
+    for (const profile of profiles) results.push(await seedParkSamples({ models, now, firstDay, profile, session, transactionRunner: { run: (work) => work(session) } }))
+    return results
+  })
+  return { parks, startDate: parks.map((park) => park.startDate).sort()[0], endDate: parks.map((park) => park.endDate).sort().at(-1) }
+}
+
+async function seedParkSamples({ models, now, firstDay, profile, session: readSession, transactionRunner }) {
+  const { Zone, User, RangerTeam, Alert, WildlifeIncident, PatrolRecord } = models
+  const park = profile.park
+  const zones = await Zone.find({ park: park._id, code: { $in: profile.zones } }).lean()
   const ranger = await User.findOne({ park: park._id, role: 'ranger' }).sort({ _id: 1 }).lean()
-  if (zones.length !== 2 || !ranger) throw new Error('Requires YALA NORTH/EAST zones and an existing YALA ranger. No data was written.')
   const zoneFor = (code) => zones.find((zone) => zone.code === code)
   const id = (key) => sampleId(park._id, key)
-  // Use the previous seven complete Sri Lankan calendar days on the first run.
-  const today = new Date(`${localDate(now)}T00:00:00+05:30`)
-  const firstDay = new Date(today.getTime() - 7 * DAY)
   const at = (day, hour = 8) => new Date(firstDay.getTime() + day * DAY + hour * HOUR)
-  const scenarios = [
+  const scenarios = profile.code === 'YALA' ? [
     { zone: 'NORTH', species: 'sri lankan leopard', source: 'camera-trap', type: 'camera-trap', location: { lat: 6.515, lng: 81.445 }, days: [0, 1, 3, 5] },
     { zone: 'EAST', species: 'sri lankan elephant', source: 'gps-collar', type: 'elephant-movement', location: { lat: 6.44, lng: 81.52 }, days: [1, 2, 4, 6] },
+  ] : [
+    { zone: 'KUDAWA', species: 'purple-faced langur', source: 'camera-trap', type: 'camera-trap', location: { lat: 6.425, lng: 80.425 }, days: [0, 2, 4] },
+    { zone: 'CORE', species: 'sri lankan leopard', source: 'camera-trap', type: 'camera-trap', location: { lat: 6.415, lng: 80.49 }, days: [1, 3, 6] },
   ]
   await transactionRunner.run(async (session) => {
     const insert = (Model, key, data) => Model.updateOne({ _id: id(key) }, {
@@ -38,7 +61,7 @@ async function seedAnalyticsSamples({ models, now = new Date(), transactionRunne
       // They do not raise additional alerts or double-count the sensor events.
       await insert(WildlifeIncident, `incident-${index}`, {
         clientId, payloadFingerprint: `${PREFIX}-fixture`,
-        reference: `${PREFIX}-${index + 1}`, ranger: ranger._id, park: park._id, zone: zone._id,
+        reference: `${PREFIX}${profile.code === 'YALA' ? '' : `-${profile.code}`}-${index + 1}`, ranger: ranger._id, park: park._id, zone: zone._id,
         type: 'wildlife-sighting', severity: 'low', species: scenario.species,
         description: `[SIMULATED SAMPLE] Development sighting of ${scenario.species}; not a real field observation.`,
         location: scenario.location, observedAt: at(0), deviceCreatedAt: at(0), receivedAt: at(0),
@@ -62,8 +85,8 @@ async function seedAnalyticsSamples({ models, now = new Date(), transactionRunne
       }
     }
   })
-  const alerts = await Alert.find({ _id: { $in: scenarios.flatMap((_, index) => [0, 1, 2, 3].map((event) => id(`alert-${index}-${event}`))) } }).sort({ createdAt: 1 }).lean()
-  return { park: park.name, startDate: localDate(alerts[0].createdAt), endDate: localDate(alerts.at(-1).createdAt),
+  const alerts = await Alert.find({ _id: { $in: scenarios.flatMap((scenario, index) => scenario.days.map((_, event) => id(`alert-${index}-${event}`))) } }).sort({ createdAt: 1 }).session(readSession).lean()
+  return { park: park.name, parkId: String(park._id), startDate: localDate(alerts[0].createdAt), endDate: localDate(alerts.at(-1).createdAt),
     alerts: alerts.length, incidents: 2, patrolRecords: 6, teamId: id('team'), species: scenarios.map((scenario) => scenario.species) }
 }
 

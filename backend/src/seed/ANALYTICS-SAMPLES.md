@@ -6,12 +6,13 @@ From `backend`, using the existing development `.env` MongoDB configuration:
 npm.cmd run seed:analytics
 ```
 
-Requires the existing YALA park, NORTH/EAST zones and a YALA ranger account.
+Requires existing YALA (NORTH/EAST) and SINHARAJA (KUDAWA/CORE) parks/zones,
+and an existing ranger account in each park.
 Missing prerequisites fail before any writes. Do not run the original `npm run
 seed` on shared data: that separate command resets collections. This additive
 command does not invoke it and refuses `NODE_ENV=production`.
 
-On the first run, inserts:
+On the first run, inserts in Yala:
 
 - Eight resolved, `simulated: true` alerts: four camera-trap leopard events in
   NORTH and four GPS-collar elephant events in EAST, across seven recent days.
@@ -23,6 +24,14 @@ On the first run, inserts:
   with no members. Patrols are identifiable by this dedicated team; the existing
   PatrolRecord model has no simulated/name field, so none is invented.
 
+Sinharaja receives six simulated camera-trap events (three purple-faced langur
+at KUDAWA and three leopard at CORE), two species sightings, six synced patrol
+records and its own empty off-duty sample team. Both parks can demonstrate
+trends, two hotspots, species and supporting records. Compare them using an
+existing park-unassigned analyst; this script never changes permissions/accounts.
+Both parks use the same dates. When upgrading a Yala-only sample dataset, the
+second park uses the existing Yala sample dates rather than moving old records.
+
 Alerts and sightings are labelled `[SIMULATED SAMPLE]`; source references and
 incident references use `UC02-SAMPLE-V1`. These are development fixtures, not
 real observations or official sensor readings. Existing park geometry/targets
@@ -33,7 +42,7 @@ prevent duplication. Reruns do not change existing documents, timestamps, sample
 dates, operational statuses, users, targets or team memberships. MongoDB must
 support transactions, as required by the existing incident/report workflows.
 
-The command prints the stored date range. As an authorized analyst, select Yala,
+The command prints the stored date range. As an authorized analyst, select Yala (or compare Yala and Sinharaja),
 that date range and All incident types. All species shows both four-event
 hotspots; either species shows its four events and one hotspot. Trends span
 multiple days; supporting records retain exact alert/patrol references. Patrol
