@@ -14,7 +14,7 @@ function createReportRouter({ reportService, authenticate }) {
     response.status(201).json({ report: serialize(await reportService.save(request.validated.body, request.user)) })
   })
   router.get('/', validate({ query: reportsQuery }), async (request, response) => {
-    response.json(serialize(await reportService.list(request.validated.query.page, request.user)))
+    response.json(serialize(await reportService.list(request.validated.query.page, request.user, request.validated.query.status)))
   })
   router.get('/:id', validate({ params: idParams }), async (request, response) => {
     response.json({ report: serialize(await reportService.get(request.validated.params.id, request.user)) })

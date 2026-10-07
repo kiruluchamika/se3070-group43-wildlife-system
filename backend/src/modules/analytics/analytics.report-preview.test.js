@@ -135,3 +135,23 @@ it('shows Preview progress while retaining the save actions', () => {
   expect(html).toContain('Save as Draft')
   expect(html).toContain('Save as Finalized')
 })
+
+
+it.each(['draft', 'finalized'])('re-analysis %s save carries the original revision and keeps it unchanged on failure/back', async (status) => {
+  const sourceDraft = { id: 'original', revision: 4 }
+  const onBack = vi.fn()
+  const props = { sourceDraft, onBack }
+  find(render(props), 'Back to Preparation').props.onClick()
+  expect(onBack).toHaveBeenCalledOnce()
+  expect(harness.post).not.toHaveBeenCalled()
+  harness.post.mockRejectedValueOnce({ status: 500 })
+  const label = status === 'draft' ? 'Save as Draft' : 'Save as Finalized'
+  await find(render(props), label).props.onClick()
+  expect(harness.post.mock.calls[0][1]).toMatchObject({ status, replaceDraft: sourceDraft })
+  expect(sourceDraft).toEqual({ id: 'original', revision: 4 })
+  expect(harness.navigate).not.toHaveBeenCalled()
+  harness.post.mockResolvedValueOnce({ report: { id: 'replacement' } })
+  await find(render(props), label).props.onClick()
+  expect(harness.post.mock.calls[1][1]).toEqual(harness.post.mock.calls[0][1])
+  expect(harness.navigate).toHaveBeenCalledWith('/reports?reportId=replacement&saved=1', { replace: true })
+})

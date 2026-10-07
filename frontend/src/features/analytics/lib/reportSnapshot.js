@@ -20,9 +20,10 @@ export function reportSnapshot(handoff) {
   })
 }
 
-export function reportSaveBody(handoff, requestId, status) {
+export function reportSaveBody(handoff, requestId, status, sourceDraft) {
   if (!['draft', 'finalized'].includes(status)) throw new Error('Choose Draft or Finalized.')
   const body = { requestId, status, title: handoff.title, findings: handoff.findings, recommendations: handoff.recommendations, snapshot: reportSnapshot(handoff) }
+  if (sourceDraft) body.replaceDraft = { id: sourceDraft.id, revision: sourceDraft.revision ?? 0 }
   // Stay below the existing API's 1 MiB JSON limit; never truncate the report.
   if (new TextEncoder().encode(JSON.stringify(body)).length > 950000) {
     throw new Error('This report exceeds the save size limit. Return to Analysis and select a shorter period to create a smaller report.')

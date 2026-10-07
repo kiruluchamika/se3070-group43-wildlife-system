@@ -13,6 +13,7 @@ import { humanize } from '../../../lib/format'
 import AnalysisResultsPage from './AnalysisResultsPage'
 import { FreshnessDialog } from '../components/FreshnessDialog'
 import { useAnalysisRetrieval } from '../hooks/useAnalysisRetrieval'
+import { analysisDateErrors, sriLankaToday } from '../lib/analysisDates'
 
 // Empty species/type values mean no restriction, including legacy records.
 const INITIAL_FILTERS = { parkId: '', startDate: '', endDate: '', species: '', incidentType: '' }
@@ -35,21 +36,24 @@ export function AnalysisFiltersPage({ initialFilters, sourceDraft, onCancelReana
   const parksQuery = useApiQuery('/analytics/options')
   const parks = parksQuery.data?.parks ?? []
   const [filters, setFilters] = useState({ ...INITIAL_FILTERS, ...initialFilters })
-  const [dateError, setDateError] = useState(null)
+  const [dateErrors, setDateErrors] = useState({})
+  const today = sriLankaToday()
   const retrieval = useAnalysisRetrieval()
   const busy = retrieval.phase === 'retrieving'
 
   function changeFilter(key) {
     return (event) => {
-      setFilters((current) => ({ ...current, [key]: event.target.value }))
-      setDateError(null)
+      const next = { ...filters, [key]: event.target.value }
+      setFilters(next)
+      setDateErrors(key === 'startDate' || key === 'endDate'
+        ? Object.fromEntries(Object.entries(analysisDateErrors(next)).filter(([field]) => next[field] || field === key)) : {})
       retrieval.reset()
     }
   }
 
   function togglePark(id) {
     setFilters((current) => ({ ...current, parkIds: current.parkIds.includes(id) ? current.parkIds.filter((park) => park !== id) : [...current.parkIds, id] }))
-    setDateError(null)
+    setDateErrors({})
     retrieval.reset()
   }
 
@@ -62,10 +66,9 @@ export function AnalysisFiltersPage({ initialFilters, sourceDraft, onCancelReana
 
   function prepareAnalysis(event) {
     event.preventDefault()
-    if (filters.startDate > filters.endDate) {
-      setDateError('End date must be on or after the start date.')
-      return
-    }
+    const errors = analysisDateErrors(filters)
+    setDateErrors(errors)
+    if (Object.keys(errors).length) return
     if (filters.parkIds) {
       if (!filters.parkIds.length || filters.parkIds.length > 20 || filters.parkIds.some((id) => !parks.some((park) => park.id === id))) return
       retrieval.retrieve(selectedFilters())
@@ -76,7 +79,7 @@ export function AnalysisFiltersPage({ initialFilters, sourceDraft, onCancelReana
   }
 
   if (retrieval.phase === 'ready') {
-    return <AnalysisResultsPage dataset={retrieval.dataset} onBack={retrieval.reset}
+    return <AnalysisResultsPage dataset={retrieval.dataset} sourceDraft={sourceDraft} onBack={retrieval.reset}
       onRetry={() => retrieval.retrieve({ ...(retrieval.dataset?.filters ?? filters) })} />
   }
 
@@ -90,12 +93,12 @@ export function AnalysisFiltersPage({ initialFilters, sourceDraft, onCancelReana
       />
       <WorkflowStepper current="filters" />
       {sourceDraft && <Card title="Previous report filters" className="mb-6">
-        <p className="break-words text-sm text-muted">These are the filters used for “{sourceDraft.title}”. Keep or change them below. Re-analysis follows the normal freshness and results flow; the original Draft remains unchanged.</p>
+        <p className="break-words text-sm text-muted">These are the filters used for “{sourceDraft.title}”. Keep or change them below. Re-analysis follows the normal freshness and results flow; the original Draft remains unchanged until a replacement is saved successfully.</p>
         <Button className="mt-4" variant="secondary" onClick={onCancelReanalysis}>Cancel re-analysis</Button>
       </Card>}
       <Card title="Analysis filters" icon={SlidersHorizontal}>
         <p className="mb-6 text-sm text-muted">
-          Select the data to retrieve. We will check known synchronization status before continuing. Dates use Sri Lanka time.
+          Dates use Sri Lanka time. Incidents use observedAt, conflicts use occurredAt, and patrols use startTime. Camera/collar and unlinked alerts use createdAt because no separate event timestamp is stored. Known synchronization status is checked before continuing.
         </p>
         {parksQuery.loading ? (
           <div role="status" className="mb-5">
@@ -119,11 +122,11 @@ export function AnalysisFiltersPage({ initialFilters, sourceDraft, onCancelReana
                   return event.target.checked ? { ...single, parkIds: single.parkId ? [single.parkId] : [] } : { ...single, parkId: parkIds?.[0] ?? single.parkId }
                 })
                 retrieval.reset()
-                setDateError(null)
+                setDateErrors({})
               }} /> Compare multiple parks
             </label>}
             {filters.parkIds ? <fieldset className="sm:col-span-2">
-              <legend className="mb-3 text-sm font-semibold text-fg">Select parks (up to 20)</legend>
+              <legend className="mb-3 text-sm font-semibold text-fg">Select parks</legend>
               <div className="grid gap-3 sm:grid-cols-2">{parks.map((park) => <label key={park.id} className="flex items-center gap-3 rounded-xl border border-line p-3 text-sm text-fg">
                 <input type="checkbox" checked={filters.parkIds.includes(park.id)} onChange={() => togglePark(park.id)}
                   disabled={!filters.parkIds.includes(park.id) && filters.parkIds.length >= 20} />{park.name}
@@ -140,11 +143,13 @@ export function AnalysisFiltersPage({ initialFilters, sourceDraft, onCancelReana
             </Field>}
             <fieldset className="grid min-w-0 gap-5 sm:col-span-2 sm:grid-cols-2">
               <legend className="mb-3 text-xs font-semibold tracking-wide text-muted uppercase">Date range</legend>
-              <Field label="Start date" required>
-                {(props) => <Input {...props} name="startDate" type="date" required value={filters.startDate} onChange={changeFilter('startDate')} />}
+              <Field label="Start date" required error={dateErrors.startDate}>
+                {(props) => <Input {...props} name="startDate" type="date" required max={today} value={filters.startDate} onChange={changeFilter('startDate')}
+                  onInvalid={(event) => { event.preventDefault(); setDateErrors(analysisDateErrors(filters)) }} />}
               </Field>
-              <Field label="End date" required error={dateError}>
-                {(props) => <Input {...props} name="endDate" type="date" required value={filters.endDate} onChange={changeFilter('endDate')} />}
+              <Field label="End date" required error={dateErrors.endDate}>
+                {(props) => <Input {...props} name="endDate" type="date" required max={today} value={filters.endDate} onChange={changeFilter('endDate')}
+                  onInvalid={(event) => { event.preventDefault(); setDateErrors(analysisDateErrors(filters)) }} />}
               </Field>
             </fieldset>
             <Field label="Species" hint="Filters recorded species on alerts. All species includes unspecified records; patrol coverage is unchanged.">

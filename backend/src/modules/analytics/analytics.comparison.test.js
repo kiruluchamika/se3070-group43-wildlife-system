@@ -100,7 +100,7 @@ describe.skipIf(!hasTestDatabase)('AF2 authorized retrieval and complete report 
     await db.models.User.updateOne({ _id: analyst.id }, { role: 'park-manager' })
     expect((await get(filters.parkIds)).status).toBe(403)
   })
-  it('saves one immutable snapshot, edits only narrative and restores all parks for a separate re-analysis report', async () => {
+  it('saves one immutable snapshot, edits only narrative and restores all parks and atomically replaces the draft after re-analysis', async () => {
     const body = input()
     const created = await save(body)
     expect(created.status).toBe(201)
@@ -116,10 +116,16 @@ describe.skipIf(!hasTestDatabase)('AF2 authorized retrieval and complete report 
     expect(restored.body.draft.filters).toEqual(body.snapshot.context.filters)
     const list = await request(app).get('/api/reports').set('Authorization', token)
     expect(list.body.reports[0].snapshot.parks.map((park) => park.context.park.name)).toEqual(['First Park', 'Second Park'])
-    expect((await save(input())).status).toBe(201)
-    expect(await db.models.ConservationReport.countDocuments()).toBe(2)
-    expect((await db.models.ConservationReport.findById(report.id)).title).toBe('Edited comparison')
+    expect(restored.body.draft.revision).toBe(1)
     expect((await request(app).get(`/api/reports/${report.id}/export`).set('Authorization', token)).status).toBe(409)
+    const replacement = { ...input('finalized'), replaceDraft: { id: report.id, revision: restored.body.draft.revision } }
+    const saved = await save(replacement)
+    expect(saved.status).toBe(201)
+    expect(saved.body.report.parks).toEqual([id(1), id(2)])
+    expect(saved.body.report.snapshot).toEqual(replacement.snapshot)
+    expect((await save(replacement)).body.report.id).toBe(saved.body.report.id)
+    expect(await db.models.ConservationReport.countDocuments()).toBe(1)
+    expect(await db.models.ConservationReport.findById(report.id)).toBeNull()
   })
   it('requires permission for every park on sharing and after current assignments change', async () => {
     const [local, global] = await db.models.User.create([
@@ -143,6 +149,16 @@ describe.skipIf(!hasTestDatabase)('AF2 authorized retrieval and complete report 
     }
     expect((await request(app).get(`/api/reports/${draft.id}/reanalysis`).set('Authorization', token)).status).toBe(404)
     expect((await request(app).patch(`/api/reports/${draft.id}`).set('Authorization', token).send({ title: 'Denied', findings: '', recommendations: '', revision: 0 })).status).toBe(404)
+  })
+  it('checks all original parks even when replacement filters switch to a permitted single park', async () => {
+    const original = (await save(input())).body.report
+    await db.models.User.updateOne({ _id: analyst.id }, { park: id(1) })
+    const body = input('finalized')
+    body.snapshot = body.snapshot.parks[0]
+    body.replaceDraft = { id: original.id, revision: 0 }
+    expect((await save(body)).status).toBe(404)
+    expect(await db.models.ConservationReport.countDocuments()).toBe(1)
+    expect(await db.models.ConservationReport.findById(original.id)).not.toBeNull()
   })
   it('downloads a real comparison PDF with both park sections and overview without changing the report', async () => {
     const body = input('finalized')

@@ -13,13 +13,14 @@ function createReportService({ reportRepository, userRepository, parkRepository,
     const visible = { ...report }
     delete visible.contentHash
     delete visible.requestId
+    delete visible.supersededRequestIds
     delete visible.sharedWith
     visible.revision = report.revision ?? 0
     return visible
   }
   async function eligibleManagers(report) {
     const parks = report.parks?.length ? report.parks : [report.park]
-    const groups = await Promise.all(parks.map((park) => userRepository.listByRole('park-manager', { park })))
+    const groups = await Promise.all(parks.map((park) => userRepository.listByRole('park-manager', { park, activeOnly: true })))
     return groups[0].filter((manager) => groups.every((group) => group.some((item) => toId(item._id) === toId(manager._id))))
   }
   return {
@@ -69,7 +70,7 @@ function createReportService({ reportRepository, userRepository, parkRepository,
       const report = await reportRepository.findOwned(id, user.id, current.park)
       if (!report) throw new NotFoundError('Report not found.', 'REPORT_NOT_FOUND')
       if (report.status !== 'draft') throw new ConflictError('Only Draft reports can be re-analyzed.', 'REPORT_READ_ONLY')
-      return { id: toId(report._id), title: report.title, filters: report.snapshot.context.filters }
+      return { id: toId(report._id), revision: report.revision ?? 0, title: report.title, filters: report.snapshot.context.filters }
     },
     async save(input, user) {
       const current = await account(user)
@@ -85,9 +86,25 @@ function createReportService({ reportRepository, userRepository, parkRepository,
       }
       const previous = await reportRepository.findRequest(user.id, requestId)
       if (previous) return existing(previous)
+      const { replaceDraft, ...reportContent } = content
+      const create = (session, source) => reportRepository.create({ ...reportContent, requestId, contentHash, author: user.id, park,
+        ...(source && { supersededRequestIds: [...(source.supersededRequestIds ?? []), source.requestId] }),
+        ...(parks.length > 1 && { parks }), finalizedAt: input.status === 'finalized' ? clock() : null }, session)
       try {
-        return publicReport(await reportRepository.create({ ...content, requestId, contentHash, author: user.id, park, ...(parks.length > 1 && { parks }),
-          finalizedAt: input.status === 'finalized' ? clock() : null }))
+        if (!replaceDraft) return publicReport(await create())
+        return await transactionRunner.run(async (session) => {
+          const retried = await reportRepository.findRequest(user.id, requestId, session)
+          if (retried) return existing(retried)
+          const source = await reportRepository.findOwned(replaceDraft.id, user.id, current.park, session)
+          if (!source) throw new NotFoundError('The original Draft is no longer available.', 'REPORT_NOT_FOUND')
+          if (source.status !== 'draft' || (source.revision ?? 0) !== replaceDraft.revision) {
+            throw new ConflictError('The original Draft has changed. Reopen it before saving a replacement.', 'DRAFT_CHANGED')
+          }
+          const saved = await create(session, source)
+          const removed = await reportRepository.removeDraft(replaceDraft.id, user.id, current.park, replaceDraft.revision, session)
+          if (removed.deletedCount !== 1) throw new ConflictError('The original Draft has changed.', 'DRAFT_CHANGED')
+          return publicReport(saved)
+        })
       } catch (error) {
         if (error.code !== 11000) throw error
         const raced = await reportRepository.findRequest(user.id, requestId)
@@ -103,11 +120,11 @@ function createReportService({ reportRepository, userRepository, parkRepository,
       if (!report) throw new NotFoundError('Report not found.', 'REPORT_NOT_FOUND')
       return publicReport(report)
     },
-    async list(page, user) {
+    async list(page, user, status) {
       const current = await account(user, true)
       const rows = current.role === 'park-manager'
-        ? await reportRepository.listShared(user.id, current.park, page)
-        : await reportRepository.list(user.id, current.park, page)
+        ? await reportRepository.listShared(user.id, current.park, page, status)
+        : await reportRepository.list(user.id, current.park, page, status)
       return { reports: rows.slice(0, 20).map(publicReport), page, hasMore: rows.length > 20 }
     },
   }

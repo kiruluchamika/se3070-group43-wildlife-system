@@ -15,6 +15,8 @@ beforeAll(async () => {
 afterAll(() => vi.unstubAllGlobals())
 it('groups Results and existing visualizations by park, with one report action and comparison at the end', () => {
   const html = renderToStaticMarkup(React.createElement(Results, { dataset: comparisonFixture() }))
+  expect(html).toContain('Actionable UC03 incidents contribute through their alerts')
+  expect(html).not.toContain('UC03 wildlife incidents are not connected')
   expect(html).toContain('Analysis for First Park')
   expect(html).toContain('Analysis for Second Park')
   expect(html.match(/View Supporting Records/g)).toHaveLength(2)

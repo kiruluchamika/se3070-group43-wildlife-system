@@ -21,7 +21,7 @@ function Fact({ label, children }) {
     <dd className="mt-1 text-sm font-semibold text-fg">{children}</dd></div>
 }
 
-export default function AnalysisResultsPage({ dataset, onBack, onRetry, embedded = false }) {
+export default function AnalysisResultsPage({ dataset, onBack, onRetry, sourceDraft, embedded = false }) {
   const result = useMemo(() => calculateStatistics(dataset), [dataset])
   const analysis = useMemo(() => calculateVisualizations(result, dataset), [result, dataset])
   const [supporting, dispatch] = useReducer(supportingReducer, initialSupportingState)
@@ -31,14 +31,14 @@ export default function AnalysisResultsPage({ dataset, onBack, onRetry, embedded
     description="Statistics from the available records matching your selected filters."
     actions={<Button variant="secondary" onClick={onBack}>Back to Filters</Button>} /><WorkflowStepper current="results" /></>
 
-  if (dataset.datasets) return <ComparisonResultsPage dataset={dataset} onBack={onBack} onRetry={onRetry} ParkResults={AnalysisResultsPage} />
+  if (dataset.datasets) return <ComparisonResultsPage dataset={dataset} sourceDraft={sourceDraft} onBack={onBack} onRetry={onRetry} ParkResults={AnalysisResultsPage} />
 
   if (result.status === 'error') {
     return <>{header}<Card><ErrorState title="Analysis unavailable" message={result.message} onRetry={onRetry} /></Card></>
   }
 
   if (report.step === 'preview') {
-    return <ReportPreviewPage handoff={report.handoff} requestId={report.requestId} onBack={() => reportDispatch({ type: 'preparation' })} />
+    return <ReportPreviewPage handoff={report.handoff} sourceDraft={sourceDraft} requestId={report.requestId} onBack={() => reportDispatch({ type: 'preparation' })} />
   }
   if (report.step !== 'results') {
     return <ReportPreparationPage state={report} dispatch={reportDispatch} result={result} analysis={analysis} dataset={dataset} />
@@ -47,7 +47,7 @@ export default function AnalysisResultsPage({ dataset, onBack, onRetry, embedded
   const { context, statistics } = result
   const metrics = [
     { label: 'Event records', value: statistics.totalEventRecords, icon: BarChart3, hint: 'Alert records + conflict records; not unique incidents.' },
-    { label: 'Alert records', value: statistics.alertRecords, icon: ShieldAlert, hint: 'All retrieved alert statuses, including simulated sources.' },
+    { label: 'Alert records', value: statistics.alertRecords, icon: ShieldAlert, hint: 'All retrieved alert statuses.' },
     { label: 'Conflict records', value: statistics.conflictRecords, icon: MessageSquareWarning, hint: 'All retrieved conflict statuses, including invalid or duplicate reports.' },
     { label: 'Zones represented', value: statistics.representedZones, icon: MapPinned, hint: 'Known zones referenced by retrieved alerts or patrols.' }
   ]
@@ -80,10 +80,10 @@ export default function AnalysisResultsPage({ dataset, onBack, onRetry, embedded
           </div>
           <Card title="About these statistics" className="mt-6">
             {statistics.totalEventRecords === 0 && <p className="mb-3 text-sm font-semibold text-fg">No matching alerts or conflicts were found. Only patrol context is available.</p>}
-            <p className="text-sm text-muted">Alerts and conflicts may describe the same real-world event. Their combined record count is not a count of unique wildlife incidents. UC03 wildlife incidents are not connected.</p>
+            <p className="text-sm text-muted">Alerts and conflicts may describe the same real-world event. Their combined record count is not a count of unique wildlife incidents. Actionable UC03 incidents contribute through their alerts; raw sightings are not counted again.</p>
             <p className="mt-3 text-sm text-muted">{statistics.patrolRecords.toLocaleString('en-GB')} patrol records are retained separately for coverage analysis and excluded from event totals. Incident type does not filter this patrol context.</p>
             <p className="mt-3 text-sm text-muted">Conflict records have no zone reference. Missing or unrecognized zone references are excluded from the zone count; park zones without matching records are not counted.</p>
-            <p className="mt-3 text-xs text-subtle">Alerts are selected by creation time, conflicts by occurrence time, and patrols by overlap with the analysis period.</p>
+            <p className="mt-3 text-xs text-subtle">{context.dateBasis || 'Alerts are selected by creation time, conflicts by occurrence time, and patrols by overlap with the analysis period.'}</p>
           </Card>
         </>
       )}

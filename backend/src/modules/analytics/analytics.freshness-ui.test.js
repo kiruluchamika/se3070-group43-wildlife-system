@@ -61,7 +61,7 @@ it('blocks reversed dates and unavailable park selections before retrieval', () 
   harness.slots[0] = { ...filters, endDate: '2026-09-30' }
   find(render(), 'form').props.onSubmit({ preventDefault() {} })
   expect(harness.get).not.toHaveBeenCalled()
-  expect(harness.slots[1]).toBe('End date must be on or after the start date.')
+  expect(harness.slots[1].endDate).toBe('End date must be on or after the start date.')
   harness.slots[0] = { ...filters, parkId: 'removed-park' }
   find(render(), 'form').props.onSubmit({ preventDefault() {} })
   expect(harness.get).not.toHaveBeenCalled()
@@ -229,4 +229,12 @@ it('shows Filters progress during filtering and pending freshness', async () => 
   expect(find(render(), WorkflowStepper).props.current).toBe('filters')
   await retrieve(true)
   expect(find(render(), WorkflowStepper).props.current).toBe('filters')
+})
+
+it('carries the original draft revision from the restored filters into Results for replacement', async () => {
+  const sourceDraft = { id: 'original', revision: 3 }
+  await retrieve(false)
+  const tree = render({ sourceDraft })
+  expect(tree.type).toBe(AnalysisResultsPage)
+  expect(tree.props.sourceDraft).toEqual(sourceDraft)
 })

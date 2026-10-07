@@ -1,6 +1,6 @@
 // Callback and routing tests using the same lightweight hook harness as earlier
 // UC02 stages. Browser focus and visual layout still require manual checks.
-const harness = vi.hoisted(() => ({ slots: [], cursor: 0, patch: vi.fn(), navigate: vi.fn(), params: null, setParams: vi.fn(), query: null, getQuery: vi.fn(), role: 'data-analyst' }))
+const harness = vi.hoisted(() => ({ slots: [], cursor: 0, patch: vi.fn(), post: vi.fn(), navigate: vi.fn(), params: null, setParams: vi.fn(), query: null, getQuery: vi.fn(), role: 'data-analyst' }))
 vi.mock('../../../../frontend/node_modules/react/index.js', async (importOriginal) => ({
   ...await importOriginal(),
   useState(initial) {
@@ -16,7 +16,7 @@ vi.mock('../../../../frontend/node_modules/react/index.js', async (importOrigina
 }))
 vi.mock('../../../../frontend/node_modules/react-router/dist/development/index.js', () => ({ useNavigate: () => harness.navigate, useSearchParams: () => [harness.params, harness.setParams] }))
 vi.mock('../../../../frontend/node_modules/react-router/dist/production/index.js', () => ({ useNavigate: () => harness.navigate, useSearchParams: () => [harness.params, harness.setParams] }))
-vi.mock('../../../../frontend/src/lib/api.js', () => ({ api: { patch: harness.patch } }))
+vi.mock('../../../../frontend/src/lib/api.js', () => ({ api: { patch: harness.patch, post: harness.post } }))
 vi.mock('../../../../frontend/src/hooks/useApiQuery.js', () => ({ useApiQuery: (...args) => { harness.getQuery(...args); return harness.query } }))
 vi.mock('../../../../frontend/src/context/auth-context.js', () => ({ useAuth: () => ({ user: { role: harness.role } }) }))
 let DraftEditor, ReportsPage, AnalysisPage, AnalysisFiltersPage, initialReportState
@@ -32,7 +32,7 @@ beforeEach(() => {
   harness.slots = []
   harness.params = new URLSearchParams()
   harness.query = { data: { reports: [] } }
-  for (const mock of [harness.patch, harness.navigate, harness.setParams, harness.getQuery]) mock.mockReset()
+  for (const mock of [harness.patch, harness.post, harness.navigate, harness.setParams, harness.getQuery]) mock.mockReset()
 })
 afterAll(() => vi.unstubAllGlobals())
 function report(status = 'draft') {
@@ -135,13 +135,13 @@ it('does not enter analysis if restoration is denied, missing, or still loading'
 
 it.each([
   ['', true, true], ['draft', true, false], ['finalized', false, true], ['invalid', true, true],
-])('filters report cards for status %s without changing the API', (status, draft, finalized) => {
+])('filters report cards for status %s and requests globally filtered pagination', (status, draft, finalized) => {
   harness.params = new URLSearchParams({ status })
   harness.query = { data: { reports: [report(), { ...report('finalized'), id: 'final-id' }], hasMore: false } }
   const tree = ReportsPage()
   expect(Boolean(button(tree, 'Open Draft'))).toBe(draft)
   expect(Boolean(button(tree, 'View report'))).toBe(finalized)
-  expect(harness.getQuery).toHaveBeenCalledWith('/reports?page=1', { enabled: true })
+  expect(harness.getQuery).toHaveBeenCalledWith(`/reports?page=1${['draft', 'finalized'].includes(status) ? `&status=${status}` : ''}`, { enabled: true })
 })
 
 it('switches status views and resets pagination', () => {
@@ -185,4 +185,35 @@ it('keeps creation progress off saved Draft and Finalized report details', () =>
   }
   harness.role = 'park-manager'
   expect(progress(ReportsPage())).toBeUndefined()
+})
+
+
+it('finalizes edited draft text using its original snapshot and revision, retaining retry identity after failure', async () => {
+  field(editor(), 'Findings').props.onChange({ target: { value: 'Final findings' } })
+  harness.post.mockRejectedValueOnce({ status: 500 })
+  await button(editor(), 'Save as Finalized').props.onClick({ preventDefault() {} })
+  const first = harness.post.mock.calls[0][1]
+  expect(first).toMatchObject({ findings: 'Final findings', status: 'finalized', snapshot: report().snapshot, replaceDraft: { id: 'draft-id', revision: 0 } })
+  expect(first.requestId).toMatch(/^[a-f0-9-]{36}$/)
+  expect(harness.navigate).not.toHaveBeenCalled()
+  expect(field(editor(), 'Findings').props.value).toBe('Final findings')
+  harness.post.mockResolvedValueOnce({ report: { id: 'replacement' } })
+  await button(editor(), 'Save as Finalized').props.onClick({ preventDefault() {} })
+  expect(harness.post.mock.calls[1][1]).toEqual(first)
+  expect(harness.navigate).toHaveBeenCalledWith('/reports?reportId=replacement&saved=1', { replace: true })
+  expect(harness.patch).not.toHaveBeenCalled()
+})
+it('validates draft finalization and blocks duplicate clicks while saving', async () => {
+  field(editor(), 'Report title').props.onChange({ target: { value: ' ' } })
+  await button(editor(), 'Save as Finalized').props.onClick({ preventDefault() {} })
+  expect(harness.post).not.toHaveBeenCalled()
+  field(editor(), 'Report title').props.onChange({ target: { value: 'Valid' } })
+  let resolve
+  harness.post.mockImplementationOnce(() => new Promise((done) => { resolve = done }))
+  const pending = button(editor(), 'Save as Finalized').props.onClick({ preventDefault() {} })
+  expect(button(editor(), 'Save as Finalized').props.disabled).toBe(true)
+  await button(editor(), 'Save as Finalized').props.onClick({ preventDefault() {} })
+  expect(harness.post).toHaveBeenCalledTimes(1)
+  resolve({ report: { id: 'final' } })
+  await pending
 })

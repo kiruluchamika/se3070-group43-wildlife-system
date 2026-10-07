@@ -369,19 +369,105 @@ describe.skipIf(!hasTestDatabase)('UC02 persisted draft/finalized reports', () =
       expect((await call(auth())).status).toBe(403)
     }
   })
-  it('restores only saved filters, and a new result creates a separate report without changing the old Draft', async () => {
+  it.each(['draft', 'finalized'])('atomically replaces a Draft with %s and deduplicates concurrent/lost-response retries', async (status) => {
+    const original = (await save(input())).body.report
+    const replacement = { ...input(status), replaceDraft: { id: original.id, revision: 0 } }
+    const responses = await Promise.all([save(replacement), save(replacement)])
+    expect(responses.map((response) => response.status)).toEqual([201, 201])
+    expect(responses[0].body.report.id).toBe(responses[1].body.report.id)
+    expect((await save(replacement)).body.report.id).toBe(responses[0].body.report.id)
+    expect(await db.models.ConservationReport.findById(original.id)).toBeNull()
+    expect(await db.models.ConservationReport.countDocuments()).toBe(1)
+    expect((await save({ ...replacement, title: 'Different retry' })).status).toBe(409)
+  })
+  it('does not resurrect replaced drafts when their original creation requests are retried', async () => {
+    const originalBody = input()
+    const original = (await save(originalBody)).body.report
+    const replacementBody = { ...input(), replaceDraft: { id: original.id, revision: 0 } }
+    const replacement = (await save(replacementBody)).body.report
+    const finalBody = { ...input('finalized'), replaceDraft: { id: replacement.id, revision: 0 } }
+    const finalized = (await save(finalBody)).body.report
+    expect(finalized).not.toHaveProperty('supersededRequestIds')
+    for (const body of [originalBody, replacementBody]) expect((await save(body)).status).toBe(409)
+    expect((await save(finalBody)).body.report.id).toBe(finalized.id)
+    expect(await db.models.ConservationReport.countDocuments()).toBe(1)
+  })
+  it('rolls back replacement insertion when retiring the original fails', async () => {
+    const original = (await save(input())).body.report
+    const before = await db.models.ConservationReport.findById(original.id).lean()
+    const replacement = { ...input('finalized'), replaceDraft: { id: original.id, revision: 0 } }
+    const failure = vi.spyOn(db.models.ConservationReport, 'deleteOne').mockRejectedValueOnce(new Error('storage failure'))
+    expect((await save(replacement)).status).toBe(500)
+    failure.mockRestore()
+    expect(await db.models.ConservationReport.findById(original.id).lean()).toEqual(before)
+    expect(await db.models.ConservationReport.countDocuments()).toBe(1)
+    expect((await save(replacement)).status).toBe(201)
+  })
+  it('rejects stale, unauthorized and finalized replacement sources without writes', async () => {
+    const original = (await save(input())).body.report
+    const replacement = { ...input('finalized'), replaceDraft: { id: original.id, revision: 1 } }
+    expect((await save(replacement)).status).toBe(409)
+    replacement.replaceDraft.revision = 0
+    expect((await save(replacement, auth(otherAuthor))).status).toBe(404)
+    expect((await save(replacement, auth(author, 'park-manager'))).status).toBe(403)
+    userRepository.findById.mockResolvedValueOnce({ _id: author, role: 'data-analyst', park: otherAuthor })
+    expect((await save(replacement)).status).toBe(403)
+    const finalized = (await save(input('finalized'))).body.report
+    expect((await save({ ...replacement, replaceDraft: { id: finalized.id, revision: 0 } })).status).toBe(409)
+    expect(await db.models.ConservationReport.findById(original.id)).not.toBeNull()
+    expect(await db.models.ConservationReport.countDocuments()).toBe(2)
+  })
+  it('only one of competing replacements of the same revision succeeds', async () => {
+    const original = (await save(input())).body.report
+    const responses = await Promise.all(['draft', 'finalized'].map((status) => save({ ...input(status), replaceDraft: { id: original.id, revision: 0 } })))
+    expect(responses.filter((response) => response.status === 201)).toHaveLength(1)
+    expect(responses.filter((response) => [404, 409].includes(response.status))).toHaveLength(1)
+    expect(await db.models.ConservationReport.countDocuments()).toBe(1)
+  })
+  it('filters the whole authorized set before pagination, including shared-manager views', async () => {
+    const [manager] = await managers()
+    const sample = input()
+    await db.models.ConservationReport.insertMany(Array.from({ length: 46 }, (_, i) => ({ ...sample,
+      requestId: randomUUID(), contentHash: 'fixture', author, park: parkId,
+      title: `Report ${i}`, status: i % 2 ? 'finalized' : 'draft', sharedWith: [manager._id],
+    })))
+    const list = (status, page, token = auth()) => request(app).get('/api/reports').query({ status, page }).set('Authorization', token)
+    for (const status of ['draft', 'finalized']) {
+      const first = (await list(status, 1)).body, second = (await list(status, 2)).body
+      expect(first.reports).toHaveLength(20)
+      expect(first.hasMore).toBe(true)
+      expect(second.reports).toHaveLength(3)
+      expect(second.hasMore).toBe(false)
+      expect([...first.reports, ...second.reports].every((report) => report.status === status)).toBe(true)
+      expect(new Set([...first.reports, ...second.reports].map((report) => report.id)).size).toBe(23)
+    }
+    const token = auth(String(manager._id), 'park-manager')
+    expect((await list('draft', 1, token)).body).toMatchObject({ reports: [], hasMore: false })
+    expect((await list('finalized', 2, token)).body.reports).toHaveLength(3)
+    expect((await list('invalid', 1)).status).toBe(400)
+  })
+  it('excludes inactive managers and rechecks activation when sharing', async () => {
+    const [manager] = await managers()
+    const report = (await save(input('finalized'))).body.report
+    await db.models.User.updateOne({ _id: manager._id }, { $set: { isActive: false } })
+    const response = await request(app).get(`/api/reports/${report.id}/recipients`).set('Authorization', auth())
+    expect(response.body.managers.some((item) => item.id === String(manager._id))).toBe(false)
+    expect((await share(report.id, [String(manager._id)])).status).toBe(403)
+    expect(await db.models.Notification.countDocuments()).toBe(0)
+  })
+  it('restores filters and revision without changing the draft before a successful replacement', async () => {
     const original = (await save(input())).body.report
     const before = await db.models.ConservationReport.findById(original.id).lean()
     const restored = await request(app).get(`/api/reports/${original.id}/reanalysis`).set('Authorization', auth())
     expect(restored.status).toBe(200)
-    expect(restored.body.draft).toEqual({ id: original.id, title: original.title, filters: original.snapshot.context.filters })
+    expect(restored.body.draft).toEqual({ id: original.id, revision: 0, title: original.title, filters: original.snapshot.context.filters })
     // Restoring, changing local filters, or cancelling never issues an update.
     restored.body.draft.filters.startDate = '2026-10-02'
     expect(await db.models.ConservationReport.findById(original.id).lean()).toEqual(before)
-    const next = (await save(input('finalized'))).body.report
+    const next = (await save({ ...input('finalized'), replaceDraft: { id: original.id, revision: 0 } })).body.report
     expect(next.id).not.toBe(original.id)
     expect(next.status).toBe('finalized')
-    expect(await db.models.ConservationReport.findById(original.id).lean()).toEqual(before)
-    expect(await db.models.ConservationReport.countDocuments()).toBe(2)
+    expect(await db.models.ConservationReport.findById(original.id).lean()).toBeNull()
+    expect(await db.models.ConservationReport.countDocuments()).toBe(1)
   })
 })

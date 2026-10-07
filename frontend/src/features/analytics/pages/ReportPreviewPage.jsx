@@ -8,7 +8,7 @@ import { PageHeader } from '../../../components/ui/PageHeader'
 import { ReportContent } from '../components/ReportContent'
 import { reportSaveBody, reportSnapshot } from '../lib/reportSnapshot'
 
-export function ReportPreviewPage({ handoff, requestId, onBack }) {
+export function ReportPreviewPage({ handoff, requestId, onBack, sourceDraft }) {
   const navigate = useNavigate()
   const [saving, setSaving] = useState(null)
   const [error, setError] = useState(null)
@@ -22,7 +22,7 @@ export function ReportPreviewPage({ handoff, requestId, onBack }) {
     setSaving(status)
     setError(null)
     try {
-      const body = reportSaveBody(handoff, requestId, status)
+      const body = reportSaveBody(handoff, requestId, status, sourceDraft)
       const result = await api.post('/reports', body)
       navigate(`/reports?reportId=${encodeURIComponent(result.report.id)}&saved=1`, { replace: true })
     } catch (failure) {

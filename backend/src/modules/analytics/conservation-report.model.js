@@ -6,6 +6,8 @@ const schema = new mongoose.Schema({
   // Present only on comparison reports; park retains the first park for legacy compatibility.
   parks: { type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Park' }], default: undefined, immutable: true },
   requestId: { type: String, required: true, immutable: true },
+  // Retain retired creation keys so delayed retries cannot recreate replaced drafts.
+  supersededRequestIds: { type: [String], default: undefined, immutable: true, select: false },
   contentHash: { type: String, required: true, immutable: true, select: false },
   title: { type: String, required: true, maxlength: 200 },
   findings: { type: String, default: '', maxlength: 5000 },

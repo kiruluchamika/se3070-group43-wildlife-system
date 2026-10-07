@@ -16,14 +16,16 @@ export function DraftEditor({ report }) {
   const [success, setSuccess] = useState(false)
   const [saving, setSaving] = useState(false)
   const inFlight = useRef(false)
+  const finalizeRequest = useRef(null)
   const dirty = Object.keys(fields).some((key) => fields[key] !== saved[key])
   function change(field, value) {
+    finalizeRequest.current = null
     setFields((current) => ({ ...current, [field]: value }))
     setErrors((current) => ({ ...current, [field]: undefined }))
     setError(null)
     setSuccess(false)
   }
-  async function save(event) {
+  async function save(event, finalize = false) {
     event.preventDefault()
     if (inFlight.current) return
     const invalid = validateReport(fields, true)
@@ -34,8 +36,16 @@ export function DraftEditor({ report }) {
     setError(null)
     setSuccess(false)
     try {
+      if (finalize) {
+        finalizeRequest.current ??= crypto.randomUUID()
+        const response = await api.post('/reports', { ...fields, snapshot: saved.snapshot, status: 'finalized',
+          requestId: finalizeRequest.current, replaceDraft: { id: report.id, revision: saved.revision ?? 0 } })
+        navigate(`/reports?reportId=${encodeURIComponent(response.report.id)}&saved=1`, { replace: true })
+        return
+      }
       const response = await api.patch(`/reports/${report.id}`, { ...fields, revision: saved.revision ?? 0 })
       setSaved(response.report)
+      finalizeRequest.current = null
       setSuccess(true)
     } catch (failure) {
       setError(failure.status >= 500 ? 'Unable to save changes. Your entries are kept; please retry.' : failure.message || 'Unable to save changes. Please retry.')
@@ -46,7 +56,7 @@ export function DraftEditor({ report }) {
   }
   return <div className="grid min-w-0 gap-6">
     <Card title="Edit Draft">
-      <p className="mb-5 text-sm text-muted">Edit the report text below. Saving changes keeps this report as Draft and preserves its original analysis.</p>
+      <p className="mb-5 text-sm text-muted">Edit the report text below. Save Changes keeps it as Draft. Save as Finalized replaces this Draft with a finalized report, preserving its analysis.</p>
       <form onSubmit={save} noValidate className="grid gap-5">
         <fieldset disabled={saving} className="grid min-w-0 gap-5">
           <Field label="Report title" required error={errors.title}>{(props) => <Input {...props} name="title" required maxLength={REPORT_LIMITS.title} value={fields.title} onChange={(event) => change('title', event.target.value)} />}</Field>
@@ -59,6 +69,7 @@ export function DraftEditor({ report }) {
         {dirty && <p className="text-xs text-muted">You have unsaved changes. Save Changes before re-analyzing to keep your edits. Leaving this page discards unsaved text.</p>}
         <div className="flex flex-wrap justify-end gap-3 border-t border-line pt-5">
           <Button type="submit" loading={saving}>Save Changes</Button>
+          <Button type="button" disabled={saving} onClick={(event) => save(event, true)}>Save as Finalized</Button>
         </div>
       </form>
     </Card>
@@ -67,7 +78,7 @@ export function DraftEditor({ report }) {
       <ReportAnalysisSummary result={saved.snapshot} analysis={saved.snapshot.analysis} />
     </section>
     <Card title="Re-analyze">
-      <p className="mb-4 text-sm text-muted">Start the normal Analysis flow with this Draft’s original filters. You can keep or change them. New findings and recommendations start empty. Saving the new result creates a separate report; this Draft remains unchanged.</p>
+      <p className="mb-4 text-sm text-muted">Start the normal Analysis flow with this Draft’s original filters. You can keep or change them. New findings and recommendations start empty. A successful save replaces this Draft; cancelling or a failed save keeps it unchanged.</p>
       <Button variant="secondary" disabled={saving || dirty} onClick={() => navigate(`/analytics?draftId=${encodeURIComponent(report.id)}`)}>Re-analyze</Button>
     </Card>
   </div>

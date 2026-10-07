@@ -10,11 +10,11 @@ import { initialReportState, reportPreparationReducer } from '../lib/reportPrepa
 import { ReportPreparationPage } from './ReportPreparationPage'
 import { ReportPreviewPage } from './ReportPreviewPage'
 
-export function ComparisonResultsPage({ dataset, onBack, onRetry, ParkResults }) {
+export function ComparisonResultsPage({ dataset, onBack, onRetry, ParkResults, sourceDraft }) {
   const result = useMemo(() => calculateComparison(dataset), [dataset])
   const [report, dispatch] = useReducer(reportPreparationReducer, initialReportState)
   const failed = result.parks.some((park) => park.status === 'error')
-  if (report.step === 'preview') return <ReportPreviewPage handoff={report.handoff} requestId={report.requestId} onBack={() => dispatch({ type: 'preparation' })} />
+  if (report.step === 'preview') return <ReportPreviewPage handoff={report.handoff} sourceDraft={sourceDraft} requestId={report.requestId} onBack={() => dispatch({ type: 'preparation' })} />
   if (report.step !== 'results') return <ReportPreparationPage state={report} dispatch={dispatch} result={result} dataset={dataset} />
   return <>
     <PageHeader eyebrow="UC02" title="Analysis Results" description="Independent park analyses for comparison."

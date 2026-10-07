@@ -19,7 +19,7 @@ export default function ReportsPage() {
   const listParams = (nextPage = page) => ({ ...(status !== 'all' && { status }), ...(nextPage > 1 && { page: String(nextPage) }) })
   const analyst = user.role === 'data-analyst'
   const permitted = analyst || user.role === 'park-manager'
-  const query = useApiQuery(reportId ? `/reports/${encodeURIComponent(reportId)}` : `/reports?page=${page}`, { enabled: permitted })
+  const query = useApiQuery(reportId ? `/reports/${encodeURIComponent(reportId)}` : `/reports?page=${page}${status === 'all' ? '' : `&status=${status}`}`, { enabled: permitted })
   const report = query.data?.report
   const reports = (query.data?.reports ?? []).filter((item) => status === 'all' || item.status === status)
   return <>

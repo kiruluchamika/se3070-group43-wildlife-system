@@ -17,6 +17,7 @@ const snapshotSchema = z.object({
     park: z.object({ id: objectId('Park'), name: z.string().min(1).max(300) }),
     period: z.object({ from: instant, until: instant, timeZone: z.literal('Asia/Colombo'), endExclusive: z.literal(true) }),
     retrievedAt: instant,
+    dateBasis: z.string().max(500).optional(),
   }),
   statistics: z.object({ totalEventRecords: count, alertRecords: count, conflictRecords: count, representedZones: count, patrolRecords: count }),
   sourceReferences: references,
@@ -81,13 +82,14 @@ const comparisonSnapshot = z.object({
 
 const saveReportBody = z.object({
   requestId: z.uuid(),
+  replaceDraft: z.object({ id: objectId('Draft'), revision: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER - 1) }).strict().optional(),
   status: z.enum(['draft', 'finalized']),
   title: z.string().max(200).refine((value) => value.trim().length > 0, 'Enter a report title.'),
   findings: z.string().max(5000),
   recommendations: z.string().max(5000),
   snapshot: z.union([snapshotSchema, comparisonSnapshot]),
 }).strict()
-const reportsQuery = z.object({ page: z.coerce.number().int().min(1).max(100000).default(1) })
+const reportsQuery = z.object({ page: z.coerce.number().int().min(1).max(100000).default(1), status: z.enum(['draft', 'finalized']).optional() })
 const editDraftBody = saveReportBody.pick({ title: true, findings: true, recommendations: true })
   .extend({ revision: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER - 1) }).strict()
 const shareReportBody = z.object({ recipients: z.array(objectId('Park Manager')).min(1, 'Select at least one Park Manager.').max(100) }).strict()

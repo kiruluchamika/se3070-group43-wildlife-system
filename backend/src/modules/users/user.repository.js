@@ -23,8 +23,8 @@ function createUserRepository(User) {
     },
 
     /** Users with `role`; with `park`, only staff of that park plus staff who cover every park (no park set). */
-    listByRole(role, { park } = {}) {
-      const filter = { role }
+    listByRole(role, { park, activeOnly = false } = {}) {
+      const filter = { role, ...(activeOnly && { isActive: { $ne: false } }) }
       if (park) filter.$or = [{ park }, { park: null }]
       return User.find(filter).select('name email role park phone').lean()
     },
