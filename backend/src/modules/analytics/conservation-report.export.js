@@ -1,6 +1,6 @@
 const { chromium } = require('playwright')
 const { ConflictError } = require('../../shared/errors/AppError')
-const escape = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character])
+const { escape, statisticsChart, trendChart } = require('./conservation-report.charts')
 const text = (value) => `<p class="text">${escape(value)}</p>`
 function table(headers, rows) {
   return `<table><thead><tr>${headers.map((label) => `<th>${escape(label)}</th>`).join('')}</tr></thead><tbody>${rows.map((row) => `<tr>${row.map((value) => `<td>${escape(value)}</td>`).join('')}</tr>`).join('')}</tbody></table>`
@@ -30,14 +30,14 @@ function parkContent(snapshot, finalizedAt) {
       ['Incident type', context.filters.incidentType || 'All incident types'], ['Species', context.filters.species || 'All species'],
       ['Retrieved at (UTC)', context.retrievedAt], ['Finalized at (UTC)', new Date(finalizedAt).toISOString()],
     ]),
-    '<h2>Statistics</h2>', table(['Measure', 'Records'], [
+    '<h2>Statistics</h2>', statisticsChart(statistics, context.park.name), table(['Measure', 'Records'], [
       ['Event records', statistics.totalEventRecords], ['Alert records', statistics.alertRecords], ['Conflict records', statistics.conflictRecords],
       ['Zones represented', statistics.representedZones], ['Patrol records (separate context)', statistics.patrolRecords],
     ]), text('Event records are not unique wildlife incidents. Patrols are excluded from event totals and are not restricted by incident type.'),
     '<h2>Trends</h2>', trends.status === 'error' ? text('Trend calculation unavailable.') :
-      text(`${trends.unit === 'day' ? 'Daily' : 'Monthly'} counts in Sri Lanka time. Alerts use creation time; conflicts use occurrence time. ${trends.omitted} records omitted due to invalid timestamps.`) +
-      (trends.status === 'empty' ? text('No trend records for this period.') : '') + table(['Period', 'Alerts', 'Conflicts'], trends.buckets.map((row) => [row.key, row.alerts, row.conflicts])),
-    '<h2>Hotspots</h2>', text('At least 3 zone-linked alert events, including simulated sources; not verified unique incidents. Conflicts have no zone reference.'),
+      text(`${trends.unit === 'day' ? 'Daily' : 'Monthly'} counts in Sri Lanka time. ${context.dateBasis || 'Alerts use creation time; conflicts use occurrence time.'} ${trends.omitted} records omitted due to invalid timestamps.`) +
+      (trends.status === 'empty' ? text('No trend records for this period.') : trendChart(trends, context.park.name)) + table(['Period', 'Alerts', 'Conflicts'], trends.buckets.map((row) => [row.key, row.alerts, row.conflicts])),
+    '<h2>Hotspots</h2>', text('At least 3 zone-linked alert events; not verified unique incidents. Conflicts have no zone reference.'),
     hotspots.status === 'error' ? text('Hotspot calculation unavailable.') :
       (hotspots.hotspots.length ? table(['Zone', 'Alert events'], hotspots.hotspots.map((row) => [row.zone.name, row.count])) : text('No hotspots identified.')) + text(`${hotspots.unzoned} records without usable zones; ${hotspots.omitted} invalid timestamps.`),
     '<h2>Patrol coverage</h2>', text('Patrol effort against prorated targets, not area covered or completion.'),
