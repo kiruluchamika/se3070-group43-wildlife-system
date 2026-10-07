@@ -1,9 +1,14 @@
 import { Card } from '../../../components/ui/Card'
 import { humanize } from '../../../lib/format'
+import { ComparativeOverview } from './ComparativeOverview'
 
 const number = (value) => value.toLocaleString('en-GB', { maximumFractionDigits: 2 })
 
 export function ReportAnalysisSummary({ result, analysis }) {
+  if (result.parks) return <div className="grid gap-6">{result.parks.map((park) => <section key={park.context.park.id} aria-label={`Summary for ${park.context.park.name}`}>
+    <h2 className="mb-3 text-xl font-bold text-fg">{park.context.park.name}</h2>
+    <ReportAnalysisSummary result={park} analysis={park.analysis} />
+  </section>)}<ComparativeOverview parks={result.parks} /></div>
   const { context, statistics } = result
   const { trends, hotspots, coverage } = analysis
   return <Card title="Analysis summary">

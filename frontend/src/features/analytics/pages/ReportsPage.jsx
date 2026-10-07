@@ -46,7 +46,7 @@ export default function ReportsPage() {
                 description={page > 1 || query.data?.hasMore ? 'Use Previous or Next to browse other pages, or choose another status.' : analyst ? 'Generate a report from Analysis, then choose Save as Draft or Save as Finalized.' : 'Only finalized reports shared with you are available.'} /></Card>}
               <div className="grid gap-4">{reports.map((item) => <Card key={item.id}>
                 <div className="flex flex-wrap items-center justify-between gap-4">
-                  <div className="min-w-0 flex-1"><h2 className="break-words font-semibold text-fg">{item.title}</h2><p className="mt-1 text-sm text-muted">{item.snapshot.context.park.name} · {item.snapshot.context.filters.startDate} to {item.snapshot.context.filters.endDate}</p></div>
+                  <div className="min-w-0 flex-1"><h2 className="break-words font-semibold text-fg">{item.title}</h2><p className="mt-1 text-sm text-muted">{item.snapshot.parks ? item.snapshot.parks.map((park) => park.context.park.name).join(', ') : item.snapshot.context.park.name} · {item.snapshot.context.filters.startDate} to {item.snapshot.context.filters.endDate}</p></div>
                   <Badge tone={item.status === 'draft' ? 'amber' : 'green'}>{item.status === 'draft' ? 'Draft' : 'Finalized'}</Badge>
                   <Button variant="secondary" onClick={() => setParams({ ...listParams(), reportId: item.id })}>{item.status === 'draft' ? 'Open Draft' : 'View report'}</Button>
                 </div>

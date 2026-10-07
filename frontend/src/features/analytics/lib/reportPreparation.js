@@ -34,6 +34,7 @@ export function reportPreparationReducer(state, action) {
         title: state.title, findings: state.findings, recommendations: state.recommendations,
         context: action.result.context, statistics: action.result.statistics,
         analysis: action.analysis, sources: action.result.sources, dataset: action.dataset,
+        ...(action.result.parks && { parks: action.result.parks }),
       }) }
     }
     default: return state
