@@ -2,6 +2,7 @@ const { ForbiddenError, NotFoundError, UnauthorizedError } = require('../../shar
 const { ROLES } = require('../../shared/roles')
 const { toId } = require('../../shared/utils/serialize')
 const { dateWindow, INCIDENT_TYPES } = require('./analytics.schemas')
+const { DATE_BASIS } = require('./analytics.repository')
 
 /** Only explicit stored sync state triggers a warning, never record age. */
 function inspectFreshness({ alerts, patrolRecords }) {
@@ -83,6 +84,7 @@ function createAnalyticsService({ analyticsRepository, parkRepository, userRepos
       ])
       return {
         filters,
+        dateBasis: DATE_BASIS,
         retrievedAt: clock(),
         period: { ...window, timeZone: 'Asia/Colombo', endExclusive: true },
         park,
@@ -91,7 +93,7 @@ function createAnalyticsService({ analyticsRepository, parkRepository, userRepos
         freshness: inspectFreshness(records),
         limitations: [
           'Species filters explicitly recorded species on alerts. Records without species are included only with All species.',
-          'Alerts use their creation time; conflicts use occurredAt; patrols overlap the selected period.',
+          DATE_BASIS,
           'Incident type filters alerts and conflicts only. Patrols and zones remain coverage context.',
           'Alerts and conflicts remain separate sources and may describe the same event.',
           'UC03 actionable incidents contribute through their alerts; raw sightings are not additional event records.'

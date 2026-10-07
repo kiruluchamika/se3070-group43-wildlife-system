@@ -45,7 +45,8 @@ export function calculateStatistics(dataset) {
     }
     return {
       status: statistics.totalEventRecords === 0 && statistics.patrolRecords === 0 ? 'empty' : 'ready',
-      context: { filters: { ...filters }, park: { id: park.id, name: park.name }, period: { ...period }, retrievedAt: dataset.retrievedAt },
+      context: { filters: { ...filters }, park: { id: park.id, name: park.name }, period: { ...period }, retrievedAt: dataset.retrievedAt,
+        ...(dataset.dateBasis && { dateBasis: dataset.dateBasis }) },
       statistics,
       representedZoneIds: [...represented].sort(),
       // Preserve source boundaries for later trends, hotspots and coverage.

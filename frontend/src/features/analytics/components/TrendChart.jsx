@@ -13,7 +13,7 @@ export function TrendChart({ trend }) {
   const ticks = [...new Set([0, Math.ceil(max / 2), max])]
   return (
     <>
-      <p className="mb-4 text-sm text-muted">{trend.unit === 'day' ? 'Daily' : 'Monthly'} records in Sri Lanka time. Alerts use creation time; conflicts use occurrence time. Patrols are excluded.</p>
+      <p className="mb-4 text-sm text-muted">{trend.unit === 'day' ? 'Daily' : 'Monthly'} records in Sri Lanka time using the selected event-time basis. Patrols are excluded.</p>
       <div className="flex flex-wrap gap-4 text-xs font-semibold text-muted">
         <span>Alerts — solid teal line, circles</span><span>Conflicts — dashed cyan line, squares</span>
       </div>

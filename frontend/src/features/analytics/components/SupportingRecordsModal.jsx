@@ -4,6 +4,7 @@ import { Button } from '../../../components/ui/Button'
 import { Field, Select } from '../../../components/ui/Field'
 import { EmptyState, ErrorState } from '../../../components/ui/Feedback'
 import { humanize } from '../../../lib/format'
+import { recordTitle } from '../lib/recordDisplay'
 import { CATEGORY_LABELS, EMPTY_MESSAGES, indexSupportingRecords, selectSupportingRecords, supportingCategories } from '../lib/supportingRecords'
 
 const PAGE_SIZE = 25
@@ -50,13 +51,12 @@ export function SupportingRecordsModal({ result, dataset, analysis, state, dispa
               const conflict = source === 'conflicts'
               const zoneId = typeof record.zone === 'string' ? record.zone : record.zone?.id
               return <tr key={`${source}:${record.id}`} className="align-top text-fg">
-                <td className="px-3 py-3">{patrol ? <><span className="block">Start: {date(record.startTime)}</span><span className="mt-1 block text-xs text-muted">End: {date(record.endTime)}</span></> : date(conflict ? record.occurredAt : record.createdAt)}</td>
+                <td className="px-3 py-3">{patrol ? <><span className="block">Start: {date(record.startTime)}</span><span className="mt-1 block text-xs text-muted">End: {date(record.endTime)}</span></> : date(conflict ? record.occurredAt : record.eventAt ?? record.createdAt)}</td>
                 <td className="px-3 py-3">{conflict ? 'Not recorded' : zones.get(zoneId) ?? 'Not recorded'}</td>
                 <td className="max-w-64 break-words px-3 py-3"><span className="font-semibold">{patrol ? 'Patrol record' : conflict ? 'Conflict report' : 'Alert'}</span>
                   {(record.type || record.conflictType) && <span className="block text-xs">{humanize(record.type || record.conflictType)}</span>}
                   {!patrol && !conflict && record.source && <span className="block text-xs text-muted">Source: {humanize(record.source)}</span>}
-                  {record.simulated === true && <span className="block text-xs text-muted">Simulated</span>}
-                  {(record.title || record.reference) && <span className="mt-1 block text-xs text-muted">{record.title || record.reference}</span>}
+                  {(record.title || record.reference) && <span className="mt-1 block text-xs text-muted">{recordTitle(record.title || record.reference)}</span>}
                   <span className="mt-1 block break-all text-xs text-subtle">ID: {record.id}</span>
                 </td>
                 <td className="px-3 py-3">{patrol ? (record.syncStatus ? `Sync: ${humanize(record.syncStatus)}` : 'Not recorded') : record.status ? humanize(record.status) : 'Not recorded'}</td>

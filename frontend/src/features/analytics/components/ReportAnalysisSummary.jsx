@@ -22,6 +22,7 @@ export function ReportAnalysisSummary({ result, analysis }) {
       <div><dt className="text-muted">Trends</dt><dd className="text-fg">{trends.status === 'error' ? 'Unavailable: calculation failed' : trends.status === 'empty' ? 'No trend records' : `${trends.buckets.length} ${trends.unit === 'day' ? 'daily' : 'monthly'} intervals; ${trends.buckets.reduce((sum, bucket) => sum + bucket.alerts + bucket.conflicts, 0)} contributing event records`}</dd></div>
       <div><dt className="text-muted">Hotspots</dt><dd className="text-fg">{hotspots.status === 'error' ? 'Unavailable: calculation failed' : `${hotspots.hotspots.length} zones with at least ${hotspots.threshold} alert events`}</dd></div>
     </dl>
+    {context.dateBasis && <p className="mt-4 text-xs text-muted">{context.dateBasis}</p>}
     <p className="mt-4 text-xs text-muted">Event records are not unique wildlife incidents. Patrol records ({statistics.patrolRecords}) are separate context and are not restricted by incident type.</p>
     <div className="mt-4 border-t border-line pt-4">
       <h3 className="text-sm font-semibold text-fg">Patrol coverage by zone</h3>

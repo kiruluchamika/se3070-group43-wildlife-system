@@ -66,6 +66,17 @@ describe('UC02 freshness', () => {
 })
 
 describe('UC02 authenticated retrieval HTTP flow', () => {
+  it.each(['startDate', 'endDate'])('rejects a future %s before reading single-park or comparison records', async (field) => {
+    const { app, token, analyticsRepository } = setup()
+    for (const scope of [{ parkId }, { parkIds: `${parkId},${otherPark}` }]) {
+      const { parkId: ignored, ...common } = filters
+      void ignored
+      const result = await request(app).get('/api/analytics').query({ ...common, ...scope, [field]: '2999-01-01' }).set('Authorization', token())
+      expect(result.status).toBe(400)
+      expect(JSON.stringify(result.body)).toContain('cannot be in the future')
+    }
+    expect(analyticsRepository.retrieve).not.toHaveBeenCalled()
+  })
   it('returns records and freshness without calculations', async () => {
     const { app, token, analyticsRepository } = setup()
     const result = await request(app).get('/api/analytics').query(filters).set('Authorization', token())

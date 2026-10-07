@@ -19,7 +19,7 @@ function eventsOf(result, dataset) {
   const events = []
   for (const [source, dateField] of [['alerts', 'createdAt'], ['conflicts', 'occurredAt']]) {
     for (const record of result.sources[source]) {
-      const at = timestamp(record[dateField])
+      const at = timestamp(source === 'alerts' ? record.eventAt ?? record[dateField] : record[dateField])
       if (!Number.isFinite(at)) { omitted++; continue }
       if (at < from || at >= until) continue
       events.push({ source, recordId: record.id, at, zoneId: source === 'alerts' ? idOf(record.zone) : null })

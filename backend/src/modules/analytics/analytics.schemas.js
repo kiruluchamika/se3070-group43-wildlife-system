@@ -24,7 +24,14 @@ const comparisonQuery = z.object({
     z.array(objectId('Park')).min(2).max(20).refine((ids) => new Set(ids).size === ids.length, 'Choose distinct parks.')),
   ...commonFilters,
 }).strict().refine(validDates, dateError)
-const retrievalQuery = z.union([singleParkQuery, comparisonQuery])
+// Apply today's limit only to new retrieval requests, not stored report snapshots.
+const retrievalQuery = z.union([singleParkQuery, comparisonQuery]).superRefine((value, context) => {
+  const today = new Date(Date.now() + 5.5 * 3600000).toISOString().slice(0, 10)
+  for (const [field, label] of [['startDate', 'Start date'], ['endDate', 'End date']]) {
+    if (value[field] > today) context.addIssue({ code: 'custom', path: [field],
+      message: `${label} cannot be in the future. Dates use Sri Lanka time.` })
+  }
+})
 
 function dateWindow({ startDate, endDate }) {
   // Date-only selections are inclusive calendar days in the parks' timezone.

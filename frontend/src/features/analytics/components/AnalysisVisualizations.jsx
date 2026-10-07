@@ -20,7 +20,7 @@ export function AnalysisVisualizations({ analysis, onRetry }) {
         {trends.omitted > 0 && <p className="mt-3 text-xs text-muted">{trends.omitted} records omitted because their timestamps are unavailable or invalid.</p>}
       </Card>
       <Card title="Hotspots" icon={MapPinned}>
-        <p className="mb-4 text-sm text-muted">A zone is a hotspot at ≥3 event records in the selected period. Current zone-based results use alert events, including simulated alerts; conflicts have no zone reference. These are not verified unique wildlife incidents.</p>
+        <p className="mb-4 text-sm text-muted">A zone is a hotspot at ≥3 event records in the selected period. Current zone-based results use alert events; conflicts have no zone reference. These are not verified unique wildlife incidents.</p>
         {hotspots.status === 'error' ? <ErrorState message={hotspots.message} onRetry={onRetry} /> : <>
           {hotspots.status === 'empty' ? <EmptyState title="No hotspots identified for the selected analysis period." /> :
             <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{hotspots.hotspots.map((row) => <li key={row.zone.id} className="rounded-xl border border-line-strong bg-surface-2 p-4">
