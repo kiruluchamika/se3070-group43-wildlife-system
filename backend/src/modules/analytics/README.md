@@ -19,7 +19,8 @@ was added. Individual calculation errors do not hide the other sections.
 
 - Trends: daily buckets for selections of at most 62 days; monthly otherwise,
   using Asia/Colombo calendar boundaries and zero-filled periods. Alerts use
-  `createdAt`; conflicts use `occurredAt`. Separate series avoid suggesting these
+  projected `eventAt` (linked incident `observedAt`, otherwise `createdAt`);
+  conflicts use `occurredAt`. Separate series avoid suggesting these
   are unique incidents. Patrols are excluded. The SVG chart includes distinct
   line/marker styles and a table of exact aggregate values. At most 1,200 buckets
   are rendered; wider ranges return a safe request-to-narrow-period message.
@@ -202,7 +203,7 @@ retrying creation cannot roll back subsequent Draft changes.
 
 Re-analyze is available only for a saved Draft with no unsaved text edits. It
 navigates to `/analytics?draftId=<id>`, where an authorized GET to
-`/api/reports/:id/reanalysis` returns only the stored filters, report ID and title.
+`/api/reports/:id/reanalysis` returns the stored filters, report ID, revision and title.
 Both endpoints recheck current account role, ownership and park access; Finalized
 reports return 409 REPORT_READ_ONLY. The link contains no trusted snapshot data.
 
@@ -216,8 +217,12 @@ Draft; after Results, Back to Filters also exposes that action.
 Re-analysis only reads the original Draft. It never PATCHes it, and the new report
 workflow starts with empty title/findings/recommendations to avoid stale narrative.
 Generate/Preview still require an explicit Draft/Finalized save, using a new UUID
-and creating a separate record. Even after a new save, the original Draft remains
-intact. Normal workflow navigation retains session input; leaving or refreshing
+and `replaceDraft: { id, revision }`. The replacement is created and the original
+Draft removed atomically only when the save succeeds. Save as Finalized in the
+Draft editor uses the same path with the existing snapshot and edited text.
+Source and destination park authorization and the original revision are checked.
+Retired creation keys are carried forward internally so delayed retries cannot
+resurrect deleted Drafts. Failed saves and cancellation keep the original intact. Normal workflow navigation retains session input; leaving or refreshing
 an unsaved analysis resets it as before. Unsaved Draft text is disclosed in the
 editor and must be saved before Re-analyze is enabled.
 
@@ -284,8 +289,10 @@ passes serialized query results through it to verify filter-dependent totals.
 - Dates include both selected calendar days in `Asia/Colombo` (+05:30).
   Database queries use an inclusive start and exclusive next-day end.
 - Alerts use `createdAt` because they have no event timestamp; conflicts use
-  `occurredAt`; patrols must overlap the requested interval. Ongoing patrols
-  are included if they started before the interval ends.
+  `occurredAt`; patrols are selected by `startTime` in the requested interval.
+  Linked UC03 alerts instead use the original incident `observedAt`. Derived
+  `eventAt` drives alert trends, hotspots and supporting-record timestamps;
+  `dateBasis` documents the mapping in results and new report snapshots.
 - Incident type matches `Alert.type` and `ConflictReport.conflictType` exactly.
   It does not restrict patrols or zones, which are coverage context.
 - Species is optional; explicit names are normalized and filtered on alerts.
@@ -313,12 +320,11 @@ dataset and moves to the Stage 3 results on `/analytics`; Cancel
 discards the pending dataset and keeps the selected filters. Leaving the page
 clears this in-memory state. New requests/unmount abort outstanding retrieval.
 
-Existing camera/GPS alert seeds are reused; no new seed data is needed or run.
-Pending-sync fixtures live only in analytics tests against isolated in-memory
-MongoDB. UC03 remains disconnected and unmodified. Future adapters may extend
-`records` and freshness metadata without changing the filter flow. Future UC03
-integration must explicitly define unique incident/source relationships before
-changing the current separate-source counts or alert-based hotspot semantics.
+The additive analytics sample seed supplies camera/GPS alerts for Yala and
+Sinharaja; see `../../seed/ANALYTICS-SAMPLES.md`. Pending-sync fixtures remain in
+isolated tests. UC03 actionable incidents contribute through linked alerts, with
+structured species and original observation time. Raw sightings are not counted
+again, preserving separate-source counts and alert-based hotspot semantics.
 
 Manual checks: sign in as an analyst; retrieve a seeded park/date period;
 check empty results and invalid ranges; use an isolated test fixture with a
@@ -397,7 +403,7 @@ Preparation, preview, Draft/Finalized details and PDF output show separate park
 sections followed by a Comparative Overview. Findings and recommendations remain
 one analyst-authored narrative for the report. Draft edits preserve every section;
 Re-analyze restores all saved parks, lets the analyst change them, and saves a
-separate report through the existing flow.
+replacement report atomically through the existing save API.
 
 The model retains `park` for compatibility and adds immutable `parks` only for
 comparison reports. Read/list/edit/re-analysis/share/export require access to
@@ -406,3 +412,9 @@ only park-unassigned analysts can compare distinct parks, and only park-unassign
 managers are eligible recipients. Later park restrictions remove access to the
 whole report, including PDF export. No UC03 changes, data migration or dependencies
 are required.
+
+
+Section 8.4 correction: Reports accepts optional `status=draft|finalized` and
+filters the authorized database set before pagination. Inactive Park Managers
+are excluded from recipient lookup and rejected again during sharing. No other
+consumer of the shared role lookup changes its behavior.

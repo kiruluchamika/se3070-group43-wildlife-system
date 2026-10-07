@@ -94,8 +94,12 @@ See [design/UC01-conflict-response.md](design/UC01-conflict-response.md) for the
 | GET | `/api/analytics/options` | data-analyst | None | `{ parks, incidentTypes, species: [{ id, label }] }`; parks restricted to the current account's assigned park, or all parks if none is assigned |
 | GET | `/api/analytics` | data-analyst | Required `parkId`, `startDate`, `endDate` (YYYY-MM-DD); optional `incidentType`, `species` | `{ filters, retrievedAt, period, park, zones, records: { alerts, conflicts, patrolRecords }, freshness, limitations }` |
 
-Dates include both days in Asia/Colombo. Alert dates use `createdAt`, conflicts
-use `occurredAt`, and patrols overlap the period. Incident type restricts
+Dates include both days in Asia/Colombo. Linked UC03 alerts use the incident
+`observedAt`; conflicts use their actual event field `occurredAt`; patrols use
+`startTime` within the selected interval. Camera/collar and unlinked legacy
+alerts retain `createdAt` because no separate event time exists. Alert projections
+include derived `eventAt`; `dateBasis` states this mapping on screen and in new
+report snapshots. No source timestamp is rewritten. Incident type restricts
 alerts/conflicts only. Species is an optional normalized name (maximum 80
 characters); a selected species matches structured Alert.species and excludes
 conflicts without species. Empty species includes unspecified records. Invalid
@@ -113,8 +117,8 @@ No report endpoints or analysis calculations are implemented in Stage 2.
 
 | Method | Path | Role | Input | Result |
 |---|---|---|---|---|
-| POST | `/api/reports` | data-analyst | `{ requestId: UUID, status: draft\|finalized, title, findings, recommendations, snapshot }` | 201 `{ report }`; identical retries return the same report |
-| GET | `/api/reports?page=1` | data-analyst | Page (default 1) | `{ reports, page, hasMore }`, 20 summaries per page |
+| POST | `/api/reports` | data-analyst | `{ requestId: UUID, status: draft\|finalized, title, findings, recommendations, snapshot, replaceDraft?: { id, revision } }` | 201 `{ report }`; identical retries return the same report |
+| GET | `/api/reports?page=1&status=draft` | data-analyst, park-manager | Page (default 1), optional status (`draft` or `finalized`), filtered before pagination | `{ reports, page, hasMore }`, 20 summaries per page |
 | GET | `/api/reports/:id` | data-analyst | Report ID | `{ report }`, including its saved analysis snapshot |
 
 Analysts access owned reports, further restricted by their current assigned
@@ -140,7 +144,7 @@ bounded snapshot contract and traceability limitations.
 | Method | Path | Role | Input | Result |
 |---|---|---|---|---|
 | PATCH | `/api/reports/:id` | data-analyst | `{ title, findings, recommendations, revision }` | `{ report }`, still Draft; increments revision |
-| GET | `/api/reports/:id/reanalysis` | data-analyst | Report ID | `{ draft: { id, title, filters } }` from the saved snapshot; no writes |
+| GET | `/api/reports/:id/reanalysis` | data-analyst | Report ID | `{ draft: { id, revision, title, filters } }` from the saved snapshot; no writes |
 
 Both require current ownership and permitted-park access. Finalized reports
 return 409 `REPORT_READ_ONLY`; missing/not-owned reports return 404. PATCH rejects
@@ -149,15 +153,22 @@ extra fields, invalid revision, blank title, title over 200 or narrative over
 created before Stage 8 start at revision 0. Stale concurrent edits return 409
 `DRAFT_CHANGED`; an identical immediately preceding retry is safe.
 
-Re-analysis restores editable filters into the normal analytics flow. Subsequent
-POST `/api/reports` creates a separate report after explicit Preview save. It
-does not replace, finalize or delete the original Draft.
+Re-analysis restores editable filters into the normal analytics flow. Draft
+Save as Finalized and re-analysis Preview saves use POST `/api/reports` with
+`replaceDraft: { id, revision }`. Creation of the replacement and deletion of the
+original Draft commit in one transaction, after checking ownership, all original
+and selected parks, Draft status and revision. Cancellation or failure preserves
+the original. Identical retries return the replacement; retired creation keys are
+retained internally to prevent delayed retries resurrecting old Drafts. Omitting
+`replaceDraft` preserves normal new-report creation. No finalized report can be
+replaced. Status filtering applies before pagination for both roles; managers
+still only receive explicitly shared finalized reports.
 
 ### UC02 Finalized sharing and export (Stage 9)
 
 | Method | Path | Role | Input/result |
 |---|---|---|---|
-| GET | `/api/reports/:id/recipients` | owning data-analyst | `{ managers: [{ id, name }] }`, same-park and park-unassigned managers |
+| GET | `/api/reports/:id/recipients` | owning data-analyst | `{ managers: [{ id, name }] }`, active same-park and park-unassigned managers |
 | POST | `/api/reports/:id/share` | owning data-analyst | `{ recipients: [managerId, ...] }` (1–100); returns `{ sharedCount, newlySharedCount }` |
 | GET | `/api/reports/:id/export` | owning data-analyst or shared park-manager | `application/pdf`, downloadable attachment generated from the saved snapshot |
 
