@@ -1,6 +1,6 @@
 const { z } = require('zod')
 const { objectId } = require('../../shared/validation')
-const { retrievalQuery, dateWindow } = require('./analytics.schemas')
+const { singleParkQuery, comparisonQuery, dateWindow } = require('./analytics.schemas')
 
 const count = z.number().int().min(0).max(15000)
 const hours = z.number().finite().min(0)
@@ -13,7 +13,7 @@ const state = z.enum(['ready', 'empty'])
 const hotspotRow = z.object({ zone, count, references })
 const snapshotSchema = z.object({
   context: z.object({
-    filters: retrievalQuery,
+    filters: singleParkQuery,
     park: z.object({ id: objectId('Park'), name: z.string().min(1).max(300) }),
     period: z.object({ from: instant, until: instant, timeZone: z.literal('Asia/Colombo'), endExclusive: z.literal(true) }),
     retrievedAt: instant,
@@ -27,7 +27,7 @@ const snapshotSchema = z.object({
     coverage: z.union([failed, z.object({ status: state, elapsedDays: hours, windowDays: z.number().finite().positive(), cutoff: instant, omitted: count,
       zones: z.array(z.object({ zone, hours, references, targetHours: z.number().finite().positive().nullable(), percent: z.number().int().min(0).max(100).nullable() })).max(5000) })]),
   }),
-}).superRefine((snapshot, ctx) => {
+}).strict().superRefine((snapshot, ctx) => {
   const fail = (message) => ctx.addIssue({ code: 'custom', message })
   const { context, statistics, sourceReferences, analysis } = snapshot
   const window = dateWindow(context.filters)
@@ -61,13 +61,31 @@ const snapshotSchema = z.object({
   if (analysis.coverage.status !== 'error') check(analysis.coverage.zones, ['patrolRecords'])
 })
 
+const comparisonSnapshot = z.object({
+  context: z.object({ filters: comparisonQuery, retrievedAt: instant }).strict(),
+  parks: z.array(snapshotSchema).min(2).max(20),
+}).strict().superRefine((snapshot, ctx) => {
+  const { parkIds, ...filters } = snapshot.context.filters
+  const fail = () => ctx.addIssue({ code: 'custom', message: 'Comparison sections must match all selected parks and filters without shared source records.' })
+  if (parkIds.length !== snapshot.parks.length) fail()
+  const references = new Set()
+  snapshot.parks.forEach((section, index) => {
+    if (section.context.park.id !== parkIds[index] || Object.entries(filters).some(([key, value]) => section.context.filters[key] !== value)) fail()
+    for (const ref of section.sourceReferences) {
+      const key = `${ref.source}:${ref.recordId}`
+      if (references.has(key)) fail()
+      references.add(key)
+    }
+  })
+})
+
 const saveReportBody = z.object({
   requestId: z.uuid(),
   status: z.enum(['draft', 'finalized']),
   title: z.string().max(200).refine((value) => value.trim().length > 0, 'Enter a report title.'),
   findings: z.string().max(5000),
   recommendations: z.string().max(5000),
-  snapshot: snapshotSchema,
+  snapshot: z.union([snapshotSchema, comparisonSnapshot]),
 }).strict()
 const reportsQuery = z.object({ page: z.coerce.number().int().min(1).max(100000).default(1) })
 const editDraftBody = saveReportBody.pick({ title: true, findings: true, recommendations: true })

@@ -1,6 +1,7 @@
 // Keep report values and traceable references, without duplicate raw source
 // documents, map geometry or unrelated retrieval metadata.
 export function reportSnapshot(handoff) {
+  if (handoff.parks) return structuredClone({ context: handoff.context, parks: handoff.parks.map(reportSnapshot) })
   const zone = (value) => ({ id: value.id, name: value.name })
   const { trends, hotspots, coverage } = handoff.analysis
   const failed = { status: 'error' }

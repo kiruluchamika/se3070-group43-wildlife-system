@@ -17,13 +17,18 @@ function createReportService({ reportRepository, userRepository, parkRepository,
     visible.revision = report.revision ?? 0
     return visible
   }
+  async function eligibleManagers(report) {
+    const parks = report.parks?.length ? report.parks : [report.park]
+    const groups = await Promise.all(parks.map((park) => userRepository.listByRole('park-manager', { park })))
+    return groups[0].filter((manager) => groups.every((group) => group.some((item) => toId(item._id) === toId(manager._id))))
+  }
   return {
     async recipients(id, user) {
       const current = await account(user)
       const report = await reportRepository.findOwned(id, user.id, current.park)
       if (!report) throw new NotFoundError('Report not found.', 'REPORT_NOT_FOUND')
       if (report.status !== 'finalized') throw new ConflictError('Only Finalized reports can be shared.', 'REPORT_NOT_FINALIZED')
-      const managers = await userRepository.listByRole('park-manager', { park: report.park })
+      const managers = await eligibleManagers(report)
       return { managers: managers.map((manager) => ({ id: toId(manager._id), name: manager.name })) }
     },
     async share(id, recipients, user) {
@@ -31,7 +36,7 @@ function createReportService({ reportRepository, userRepository, parkRepository,
       const report = await reportRepository.findOwned(id, user.id, current.park)
       if (!report) throw new NotFoundError('Report not found.', 'REPORT_NOT_FOUND')
       if (report.status !== 'finalized') throw new ConflictError('Only Finalized reports can be shared.', 'REPORT_NOT_FINALIZED')
-      const permitted = new Set((await userRepository.listByRole('park-manager', { park: report.park })).map((manager) => toId(manager._id)))
+      const permitted = new Set((await eligibleManagers(report)).map((manager) => toId(manager._id)))
       const selected = [...new Set(recipients)]
       if (!selected.length || selected.some((id) => !permitted.has(id))) throw new ForbiddenError('Select only eligible Park Managers for this report.', 'INVALID_REPORT_RECIPIENT')
       return transactionRunner.run(async (session) => {
@@ -68,9 +73,10 @@ function createReportService({ reportRepository, userRepository, parkRepository,
     },
     async save(input, user) {
       const current = await account(user)
-      const park = input.snapshot.context.park.id
-      if (current.park && toId(current.park) !== park) throw new ForbiddenError('This park is outside your assigned park.', 'OUTSIDE_ASSIGNED_PARK')
-      if (!await parkRepository.findParkById(park)) throw new NotFoundError('The selected park was not found.')
+      const parks = input.snapshot.parks?.map((section) => section.context.park.id) ?? [input.snapshot.context.park.id]
+      const park = parks[0]
+      if (current.park && parks.some((id) => toId(current.park) !== id)) throw new ForbiddenError('This park is outside your assigned park.', 'OUTSIDE_ASSIGNED_PARK')
+      for (const id of parks) if (!await parkRepository.findParkById(id)) throw new NotFoundError('The selected park was not found.')
       const { requestId, ...content } = input
       const contentHash = createHash('sha256').update(JSON.stringify(content)).digest('hex')
       function existing(report) {
@@ -80,7 +86,7 @@ function createReportService({ reportRepository, userRepository, parkRepository,
       const previous = await reportRepository.findRequest(user.id, requestId)
       if (previous) return existing(previous)
       try {
-        return publicReport(await reportRepository.create({ ...content, requestId, contentHash, author: user.id, park,
+        return publicReport(await reportRepository.create({ ...content, requestId, contentHash, author: user.id, park, ...(parks.length > 1 && { parks }),
           finalizedAt: input.status === 'finalized' ? clock() : null }))
       } catch (error) {
         if (error.code !== 11000) throw error
