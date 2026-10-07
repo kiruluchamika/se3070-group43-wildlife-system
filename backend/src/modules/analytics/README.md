@@ -368,3 +368,41 @@ Raw sightings are not added as a new source, avoiding duplicate event counting.
 Patrol coverage and freshness are unchanged. Filters are copied through existing
 report context/snapshots and restored by re-analysis; old missing/empty values
 remain valid. Species labels appear in results, report summary and PDF export.
+
+
+### AF2: Compare Multiple Parks
+
+The existing single-park selection and report format remain supported. Analysts
+can enable **Compare multiple parks** and select up to 20 permitted parks. One
+selected park uses the original `parkId` request; two or more use `parkIds`.
+
+`GET /api/analytics?parkIds=id1,id2&startDate=YYYY-MM-DD&endDate=YYYY-MM-DD`
+accepts the same optional species and incident-type filters. Every park is checked
+before any records are retrieved. The response contains ordered `datasets`, each
+with the original single-park shape, and park-labelled combined freshness metadata.
+Failure in any retrieval rejects the entire request instead of returning partial
+results. Each park retains its own records, zones, policy targets, calculations,
+visualizations and Supporting Records. The Comparative Overview displays existing
+metrics per park, not merged event totals or an invented overall coverage rate.
+
+One comparison report uses `snapshot.context.filters.parkIds` and
+`snapshot.parks[]`, an ordered array of validated single-park snapshots. Dates,
+species and incident type must match across sections; parks must match the
+selection exactly and source references cannot be shared between parks. Raw
+records and geometry are excluded as before. The existing 950 KB client save
+limit and 1 MiB API body limit apply to the whole report; shorten the period or
+select fewer parks if needed. Single-park and legacy snapshots are unchanged.
+
+Preparation, preview, Draft/Finalized details and PDF output show separate park
+sections followed by a Comparative Overview. Findings and recommendations remain
+one analyst-authored narrative for the report. Draft edits preserve every section;
+Re-analyze restores all saved parks, lets the analyst change them, and saves a
+separate report through the existing flow.
+
+The model retains `park` for compatibility and adds immutable `parks` only for
+comparison reports. Read/list/edit/re-analysis/share/export require access to
+**every** included park. Under the existing one-assigned-park-or-all convention,
+only park-unassigned analysts can compare distinct parks, and only park-unassigned
+managers are eligible recipients. Later park restrictions remove access to the
+whole report, including PDF export. No UC03 changes, data migration or dependencies
+are required.
