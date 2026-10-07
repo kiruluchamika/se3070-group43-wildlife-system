@@ -57,6 +57,9 @@ it('requires confirmation and supports cancellation without a status request', a
   const close = vi.fn(), saved = vi.fn()
   const props = { user, onClose: close, onSaved: saved }
   const tree = render(Status, props)
+  expect(tree.props.tone).toBe('danger')
+  expect(button(tree, 'Deactivate').props.variant).toBe('danger')
+  expect(find(tree, (node) => typeof node.props?.children === 'string' && node.props.children.includes('will no longer be able to access the system'))).toBeDefined()
   expect(h.patch).not.toHaveBeenCalled()
   button(tree, 'Cancel').props.onClick()
   expect(close).toHaveBeenCalledOnce()
@@ -65,6 +68,23 @@ it('requires confirmation and supports cancellation without a status request', a
   await button(tree, 'Deactivate').props.onClick()
   expect(h.patch).toHaveBeenCalledWith('/users/other/status', { isActive: false })
   expect(saved).toHaveBeenCalledOnce()
+})
+it('offers creation and confirmed destructive deactivation without an Edit action', () => {
+  h.query.data.users = [user]
+  let tree = render(Page)
+  expect(button(tree, 'Edit')).toBeUndefined()
+  expect(button(tree, 'Create User').props.disabled).toBe(false)
+  button(tree, 'Create User').props.onClick()
+  expect(find(render(Page), (node) => node.type === Editor).props.user).toBeUndefined()
+  tree = render(Page)
+  expect(button(tree, 'Deactivate').props.variant).toBe('danger')
+  button(tree, 'Deactivate').props.onClick()
+  expect(find(render(Page), (node) => node.type === Status).props.user).toEqual(user)
+  expect(h.patch).not.toHaveBeenCalled()
+  h.query.data.users = [{ ...user, id: 'admin' }]
+  expect(button(render(Page), 'Deactivate').props.disabled).toBe(true)
+  h.query.data.users = [{ ...user, isActive: false }]
+  expect(button(render(Page), 'Activate').props.variant).toBe('secondary')
 })
 it('prevents duplicate activation requests and preserves the dialog on failure', async () => {
   let reject

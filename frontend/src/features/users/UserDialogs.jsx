@@ -60,10 +60,10 @@ export function UserStatusDialog({ user, onClose, onSaved }) {
     } catch (failure) { setError(messageFor(failure)) }
     finally { inFlight.current = false; setBusy(false) }
   }
-  return <Modal open onClose={onClose} dismissible={!busy} title={`${action} User`} tone={active ? 'warning' : 'brand'}
-    footer={<><Button variant="secondary" disabled={busy} onClick={onClose}>Cancel</Button><Button variant={active ? 'warning' : 'primary'} loading={busy} onClick={confirm}>{action}</Button></>}>
+  return <Modal open onClose={onClose} dismissible={!busy} title={`${action} User`} tone={active ? 'danger' : 'brand'}
+    footer={<><Button variant="secondary" disabled={busy} onClick={onClose}>Cancel</Button><Button variant={active ? 'danger' : 'primary'} loading={busy} onClick={confirm}>{action}</Button></>}>
     <p className="break-words text-sm text-fg">{action} {user.name} ({user.email})?</p>
-    <p className="mt-2 text-sm text-muted">{active ? 'This disables sign-in and access from existing sessions. Their records will be retained.' : 'This restores sign-in access. Previously revoked sessions remain invalid.'}</p>
+    <p className="mt-2 text-sm text-muted">{active ? 'This account will be deactivated and will no longer be able to access the system, including from existing sessions. Their records will be retained.' : 'This restores sign-in access. Previously revoked sessions remain invalid.'}</p>
     {error && <p role="alert" className="mt-3 text-sm text-red-500 dark:text-red-300">{error}</p>}
   </Modal>
 }
