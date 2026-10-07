@@ -110,9 +110,9 @@ export default function LoginPage() {
 
       <div className="mt-6 rounded-2xl border border-dashed border-amber-400/40 bg-amber-400/5 p-4">
         <p className="flex items-center gap-2 text-xs font-bold tracking-wide text-amber-700 uppercase dark:text-amber-300">
-          <FlaskConical className="size-3.5" aria-hidden="true" /> Development demo accounts
+          <FlaskConical className="size-3.5" aria-hidden="true" /> Role sign-in
         </p>
-        <p className="mt-1 text-xs text-muted">Seeded test users for each role. This is not a login method in the real system.</p>
+        <p className="mt-1 text-xs text-muted">Use a role shortcut or enter your registered account details above.</p>
         <div className="mt-3 flex flex-wrap gap-2">
           {DEMO_ACCOUNTS.map((account) => (
             <motion.button

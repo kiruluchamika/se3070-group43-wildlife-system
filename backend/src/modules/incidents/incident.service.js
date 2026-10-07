@@ -34,6 +34,8 @@ function fingerprintOf(body) {
     recordedOffline: Boolean(body.recordedOffline),
     photos: body.photos ?? []
   }
+  // Omit absent species to preserve fingerprints for pre-species offline retries.
+  if (body.species) identity.species = body.species
   return crypto.createHash('sha256').update(JSON.stringify(identity)).digest('hex')
 }
 
@@ -88,6 +90,7 @@ function createIncidentService({ incidentRepository, parkRepository, alertServic
         type: body.type,
         severity,
         description: body.description,
+        species: body.species || undefined,
         location: body.location,
         locationNote: body.locationNote,
         observedAt: body.observedAt,
@@ -115,6 +118,7 @@ function createIncidentService({ incidentRepository, parkRepository, alertServic
                 title: rule.title,
                 message: body.description,
                 location: body.location,
+                species: body.species || undefined,
                 source: 'ranger-incident',
                 sourceRef: String(incident._id)
               },

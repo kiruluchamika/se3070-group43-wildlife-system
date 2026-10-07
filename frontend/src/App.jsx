@@ -23,6 +23,9 @@ const NotFoundPage = lazy(() => import('./features/errors/NotFoundPage'))
  * the module placeholder until its owner adds the page here.
  */
 const PAGES = {
+  '/users': lazy(() => import('./features/users/UsersPage')),
+  '/analytics': lazy(() => import('./features/analytics/pages/AnalysisPage')),
+  '/reports': lazy(() => import('./features/analytics/pages/ReportsPage')),
   // UC04 — Monitor Patrol Coverage and Allocate Resources (HETTIGE K.C.)
   '/patrol': lazy(() => import('./features/patrol/pages/PatrolDashboardPage')),
   '/patrol/alerts': lazy(() => import('./features/patrol/pages/AlertsPage')),
