@@ -1,4 +1,5 @@
-const harness = vi.hoisted(() => ({ slots: [], cursor: 0, get: vi.fn(), post: vi.fn(), query: null }))
+const harness = vi.hoisted(() => ({ slots: [], cursor: 0, get: vi.fn(), post: vi.fn(), success: vi.fn(), query: null }))
+vi.mock('../../../../frontend/node_modules/sonner/dist/index.mjs', () => ({ toast: { success: harness.success } }))
 vi.mock('../../../../frontend/node_modules/react/index.js', async (importOriginal) => ({
   ...await importOriginal(),
   useState(initial) {
@@ -27,6 +28,7 @@ beforeEach(() => {
   harness.slots = []
   harness.get.mockReset()
   harness.post.mockReset()
+  harness.success.mockReset()
   harness.query = { data: { managers: [{ id: 'one', name: 'Manager One' }, { id: 'two', name: 'Manager Two' }] } }
 })
 const report = { id: 'report', title: 'Conservation report', status: 'finalized' }
@@ -64,6 +66,14 @@ it('rejects zero recipients before requesting a share', async () => {
   await button(dialog(), 'Share Report').props.onClick()
   expect(harness.post).not.toHaveBeenCalled()
   expect(button(dialog(), 'Select at least one Park Manager.')).toBeDefined()
+})
+it('shows a success toast and retains inline feedback after the share dialog closes', () => {
+  button(actions(), 'Share').props.onClick()
+  expect(harness.success).not.toHaveBeenCalled()
+  find(actions(), (node) => node.type === Dialog).props.onShared('Report shared successfully with 1 Park Manager.')
+  expect(harness.success).toHaveBeenCalledExactlyOnceWith('Report shared successfully.')
+  expect(find(actions(), (node) => node.type === Dialog)).toBeUndefined()
+  expect(find(actions(), (node) => node.props?.role === 'status').props.children).toBe('Report shared successfully with 1 Park Manager.')
 })
 it.each([1, 2])('shares with %i selected managers only after confirmation', async (count) => {
   select('Manager One')
@@ -148,4 +158,9 @@ it('reports export failure safely without claiming success', async () => {
   await button(actions(), 'Export PDF').props.onClick()
   expect(harness.slots[3]).toContain('Unable to download the report PDF')
   expect(harness.slots[2]).toBeNull()
+})
+
+it('describes a downloadable PDF without browser print instructions', () => {
+  expect(button(actions(), 'Export downloads a PDF copy of this finalized report.')).toBeDefined()
+  expect(find(actions(), (node) => typeof node.props?.children === 'string' && node.props.children.includes('print dialog'))).toBeUndefined()
 })
