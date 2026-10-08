@@ -1,5 +1,6 @@
 /** Actor roles from Group 41's use case diagram. */
 const ROLES = Object.freeze({
+  ADMINISTRATOR: 'administrator',
   VILLAGER: 'villager',
   RANGER: 'ranger',
   LIAISON_OFFICER: 'liaison-officer',

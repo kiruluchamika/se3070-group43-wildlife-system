@@ -7,6 +7,8 @@ const userSchema = new mongoose.Schema(
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     passwordHash: { type: String, required: true, select: false },
     role: { type: String, enum: ALL_ROLES, default: ROLES.VILLAGER },
+    isActive: { type: Boolean, default: true },
+    sessionVersion: { type: Number, default: 0, min: 0, select: false },
     phone: { type: String, trim: true, maxlength: 20 },
     // Home park for staff roles; dashboards open on this park by default.
     park: { type: mongoose.Schema.Types.ObjectId, ref: 'Park' },

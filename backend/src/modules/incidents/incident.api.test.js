@@ -76,3 +76,12 @@ describe('UC03 incident API', () => {
     expect(incidentService.getMine).toHaveBeenCalledWith(id, expect.objectContaining({ role: 'ranger' }))
   })
 })
+
+it('accepts optional structured species and normalizes it without inferring description text', async () => {
+  const { app, incidentService } = buildApp()
+  const response = await request(app).post('/api/incidents').send({ ...validPayload(), species: ' Test  Species ' })
+  expect(response.status).toBe(201)
+  expect(incidentService.submit.mock.calls[0][0].species).toBe('test species')
+  const invalid = await request(app).post('/api/incidents').send({ ...validPayload(), species: 'x'.repeat(81) })
+  expect(invalid.status).toBe(400)
+})

@@ -9,6 +9,7 @@ function toPublicUser(user) {
     name: user.name,
     email: user.email,
     role: user.role,
+    isActive: user.isActive !== false,
     phone: user.phone || null,
     park: toId(user.park),
     team: toId(user.team)
@@ -39,13 +40,14 @@ function createAuthService({ userRepository, tokenService, passwordHasher }) {
       const user = await userRepository.findByEmail(email, { withPassword: true })
       const passwordMatches = user ? await passwordHasher.compare(password, user.passwordHash) : false
 
-      if (!passwordMatches) throw new UnauthorizedError('Invalid email or password.', 'INVALID_CREDENTIALS')
+      if (!passwordMatches || user.isActive === false) throw new UnauthorizedError('Invalid email or password.', 'INVALID_CREDENTIALS')
       return createSession(user)
     },
 
     async getProfile(userId) {
       const user = await userRepository.findById(userId)
       if (!user) throw new NotFoundError('Your user account was not found.', 'USER_NOT_FOUND')
+      if (user.isActive === false) throw new UnauthorizedError('This account is inactive.', 'ACCOUNT_INACTIVE')
       return toPublicUser(user)
     }
   }

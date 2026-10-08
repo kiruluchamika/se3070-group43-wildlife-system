@@ -8,6 +8,7 @@ import { riseIn, stagger } from '../../lib/motion'
 import { MODULE_OWNERS, navItemsFor, ROLE_LABELS, ROLES } from '../../lib/navigation'
 
 const ROLE_INTRO = {
+  [ROLES.ADMINISTRATOR]: 'Manage WildGuard users, roles and account access.',
   [ROLES.PARK_MANAGER]: 'Monitor patrol coverage, respond to alerts and deploy ranger teams where they are needed most.',
   [ROLES.RANGER]: 'Check your patrol assignment, report incidents from the field and respond to conflict tasks.',
   [ROLES.LIAISON_OFFICER]: 'Validate community conflict reports and coordinate ranger responses with villages.',
@@ -20,6 +21,21 @@ function greetingFor(timestamp) {
   if (hour < 12) return 'Good morning'
   if (hour < 17) return 'Good afternoon'
   return 'Good evening'
+}
+
+const ANALYST_CARDS = {
+  '/analytics': {
+    description: 'Select filters for conservation analysis. Results, patterns and hotspots are coming next.',
+    action: 'Start Analysis',
+    status: 'Filters available',
+    tone: 'brand',
+  },
+  '/reports': {
+    description: 'Your future workspace for generated reports, editable drafts and finalized reports to share or export.',
+    action: 'View Reports',
+    status: 'Coming soon',
+    tone: 'amber',
+  },
 }
 
 export default function RoleHomePage() {
@@ -50,6 +66,7 @@ export default function RoleHomePage() {
       <motion.ul variants={stagger} initial="hidden" animate="visible" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {modules.map((item) => {
           const owner = MODULE_OWNERS[item.useCase]
+          const analystCard = user.role === ROLES.DATA_ANALYST ? ANALYST_CARDS[item.path] : null
           return (
             <motion.li key={item.path} variants={riseIn} whileHover={{ y: -4 }} transition={{ type: 'spring', stiffness: 300, damping: 20 }}>
               <Link
@@ -64,13 +81,18 @@ export default function RoleHomePage() {
                 </div>
                 <div>
                   <p className="font-bold text-fg">{item.label}</p>
-                  <p className="mt-1 text-sm text-muted">{owner?.title}</p>
+                  <p className="mt-1 text-sm text-muted">{analystCard?.description ?? owner?.title}</p>
                 </div>
+                {analystCard && (
+                  <span className="flex items-center gap-1.5 text-sm font-semibold text-brand-600 dark:text-brand-300">
+                    {analystCard.action}<ArrowUpRight className="size-4" aria-hidden="true" />
+                  </span>
+                )}
                 <div className="mt-auto flex items-center justify-between gap-2">
                   <span className="font-mono text-[11px] text-subtle">
                     {item.useCase} · {owner?.name}
                   </span>
-                  {item.ready ? <Badge tone="green">Live</Badge> : <Badge tone="amber">In development</Badge>}
+                  {analystCard ? <Badge tone={analystCard.tone}>{analystCard.status}</Badge> : item.ready ? <Badge tone="green">Live</Badge> : <Badge tone="amber">In development</Badge>}
                 </div>
               </Link>
             </motion.li>

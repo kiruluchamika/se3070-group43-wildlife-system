@@ -208,3 +208,17 @@ describe('UC03 incident service', () => {
     expect(fingerprintOf(body)).toBe(fingerprintOf(structuredClone(body)))
   })
 })
+
+it('stores explicit species, propagates it to alerts and protects retry identity', async () => {
+  const world = createWorld()
+  const body = validBody({ parkId: world.park._id, zoneId: world.zone._id, species: 'test species' })
+  const first = await world.service.submit(body, world.ranger)
+  expect(first.incident.species).toBe('test species')
+  expect(first.alert.species).toBe('test species')
+  await expect(world.service.submit(body, world.ranger)).resolves.toMatchObject({ created: false })
+  await expect(world.service.submit({ ...body, species: 'other species' }, world.ranger)).rejects.toMatchObject({ code: 'CLIENT_ID_REUSED' })
+})
+it('keeps legacy fingerprints identical when species is omitted or empty', () => {
+  const body = validBody()
+  expect(fingerprintOf(body)).toBe(fingerprintOf({ ...body, species: '' }))
+})

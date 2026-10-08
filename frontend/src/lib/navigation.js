@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 
 export const ROLES = Object.freeze({
+  ADMINISTRATOR: 'administrator',
   VILLAGER: 'villager',
   RANGER: 'ranger',
   LIAISON_OFFICER: 'liaison-officer',
@@ -24,6 +25,7 @@ export const ROLES = Object.freeze({
 })
 
 export const ROLE_LABELS = {
+  [ROLES.ADMINISTRATOR]: 'Administrator',
   [ROLES.VILLAGER]: 'Villager',
   [ROLES.RANGER]: 'Ranger',
   [ROLES.LIAISON_OFFICER]: 'Community Liaison Officer',
@@ -45,6 +47,7 @@ export const MODULE_OWNERS = {
  * `ready: false` shows the module placeholder until the owner merges the page.
  */
 export const NAV_ITEMS = [
+  { path: '/users', label: 'User Management', icon: Users, roles: [ROLES.ADMINISTRATOR], ready: true },
   { path: '/', label: 'Dashboard', icon: Home, roles: Object.values(ROLES), ready: true, end: true },
 
   // UC04 — Park Manager
@@ -67,8 +70,8 @@ export const NAV_ITEMS = [
   { path: '/response-tasks', label: 'Response Tasks', icon: Bell, roles: [ROLES.RANGER], useCase: 'UC01', ready: true },
 
   // UC02 — Data Analyst, Park Manager (receives shared reports)
-  { path: '/analytics', label: 'Analysis', icon: BarChart3, roles: [ROLES.DATA_ANALYST], useCase: 'UC02' },
-  { path: '/reports', label: 'Reports', icon: FileText, roles: [ROLES.DATA_ANALYST, ROLES.PARK_MANAGER], useCase: 'UC02' },
+  { path: '/analytics', label: 'Analysis', icon: BarChart3, roles: [ROLES.DATA_ANALYST], useCase: 'UC02', ready: true },
+  { path: '/reports', label: 'Reports', icon: FileText, roles: [ROLES.DATA_ANALYST, ROLES.PARK_MANAGER], useCase: 'UC02', ready: true },
 ]
 
 export const navItemsFor = (role) => NAV_ITEMS.filter((item) => item.roles.includes(role))

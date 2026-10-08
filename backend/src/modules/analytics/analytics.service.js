@@ -1,0 +1,106 @@
+const { ForbiddenError, NotFoundError, UnauthorizedError } = require('../../shared/errors/AppError')
+const { ROLES } = require('../../shared/roles')
+const { toId } = require('../../shared/utils/serialize')
+const { dateWindow, INCIDENT_TYPES } = require('./analytics.schemas')
+const { DATE_BASIS } = require('./analytics.repository')
+
+/** Only explicit stored sync state triggers a warning, never record age. */
+function inspectFreshness({ alerts, patrolRecords }) {
+  const sources = [
+    ...alerts.filter((record) => ['camera-trap', 'gps-collar'].includes(record.source)).map((record) => ({
+      recordId: toId(record._id),
+      source: record.source,
+      label: `${record.source === 'camera-trap' ? 'Camera Trap' : 'GPS Collar'} ${record.sourceRef || toId(record._id)}`,
+      status: 'unknown',
+      lastSuccessfulSyncAt: null,
+      reason: 'This source does not record synchronization status or a last successful synchronization time.'
+    })),
+    ...patrolRecords.map((record) => ({
+      recordId: toId(record._id),
+      source: 'patrol-record',
+      label: `Patrol record ${toId(record._id)}`,
+      status: record.syncStatus === 'pending' ? 'potentially-outdated' : record.syncStatus === 'synced' ? 'synced' : 'unknown',
+      lastSuccessfulSyncAt: null,
+      reason: record.syncStatus === 'pending'
+        ? 'The server has this record marked as pending synchronization.'
+        : 'The patrol model records sync status, but no last successful synchronization time.'
+    }))
+  ]
+  const affectedSources = sources.filter((source) => source.status === 'potentially-outdated')
+  return {
+    requiresConfirmation: affectedSources.length > 0,
+    status: affectedSources.length ? 'potentially-outdated' : sources.length && sources.every((source) => source.status === 'synced') ? 'synced' : 'unknown',
+    sources,
+    affectedSources,
+    note: 'Only synchronization information known to the server is shown. Records still only on field devices are not known.'
+  }
+}
+
+function createAnalyticsService({ analyticsRepository, parkRepository, userRepository, clock = () => new Date() }) {
+  async function analyst(user) {
+    const account = await userRepository.findById(user.id)
+    if (!account) throw new UnauthorizedError('Your account no longer exists.', 'USER_NOT_FOUND')
+    if (account.role !== ROLES.DATA_ANALYST) throw new ForbiddenError('Only Data Analysts can retrieve analysis data.', 'ACCESS_DENIED')
+    return account
+  }
+  return {
+    async options(user) {
+      const account = await analyst(user)
+      const parks = await parkRepository.listParks()
+      const permitted = parks.filter((park) => !account.park || toId(park._id) === toId(account.park))
+      return { parks: permitted, incidentTypes: INCIDENT_TYPES, species: await analyticsRepository.speciesOptions(permitted.map((park) => park._id)) }
+    },
+    async retrieve(filters, user) {
+      const account = await analyst(user)
+      if (filters.parkIds) {
+        // Authorize and resolve every park before reading any source records.
+        if (account.park && filters.parkIds.some((id) => id !== toId(account.park))) {
+          throw new ForbiddenError('This park is outside your assigned park.', 'OUTSIDE_ASSIGNED_PARK')
+        }
+        const parks = await Promise.all(filters.parkIds.map((id) => parkRepository.findParkById(id)))
+        if (parks.some((park) => !park)) throw new NotFoundError('A selected park was not found.', 'PARK_NOT_FOUND')
+        const { parkIds, ...common } = filters
+        const datasets = []
+        // Sequential bounded reads avoid multiplying database load by park count.
+        for (const parkId of parkIds) datasets.push(await this.retrieve({ ...common, parkId }, user))
+        const sources = datasets.flatMap((data) => data.freshness.sources.map((source) => ({
+          ...source, parkId: toId(data.park._id), label: `${data.park.name}: ${source.label}`,
+        })))
+        const affectedSources = sources.filter((source) => source.status === 'potentially-outdated')
+        return { filters, datasets, retrievedAt: datasets[0].retrievedAt, period: datasets[0].period,
+          freshness: { sources, affectedSources, requiresConfirmation: affectedSources.length > 0,
+            status: affectedSources.length ? 'potentially-outdated' : sources.length && sources.every((source) => source.status === 'synced') ? 'synced' : 'unknown',
+            note: datasets[0].freshness.note } }
+      }
+      if (account.park && toId(account.park) !== filters.parkId) {
+        throw new ForbiddenError('This park is outside your assigned park.', 'OUTSIDE_ASSIGNED_PARK')
+      }
+      const park = await parkRepository.findParkById(filters.parkId)
+      if (!park) throw new NotFoundError('The selected park was not found.', 'PARK_NOT_FOUND')
+      const window = dateWindow(filters)
+      const [records, zones] = await Promise.all([
+        analyticsRepository.retrieve({ ...filters, ...window }),
+        parkRepository.listZones(filters.parkId)
+      ])
+      return {
+        filters,
+        dateBasis: DATE_BASIS,
+        retrievedAt: clock(),
+        period: { ...window, timeZone: 'Asia/Colombo', endExclusive: true },
+        park,
+        zones,
+        records,
+        freshness: inspectFreshness(records),
+        limitations: [
+          'Species filters explicitly recorded species on alerts. Records without species are included only with All species.',
+          DATE_BASIS,
+          'Incident type filters alerts and conflicts only. Patrols and zones remain coverage context.',
+          'Alerts and conflicts remain separate sources and may describe the same event.',
+          'UC03 actionable incidents contribute through their alerts; raw sightings are not additional event records.'
+        ]
+      }
+    }
+  }
+}
+
+module.exports = { createAnalyticsService, inspectFreshness }

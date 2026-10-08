@@ -22,6 +22,7 @@ function initialForm(user) {
     parkId: user?.park ?? '',
     type: '',
     severity: '',
+    species: '',
     observedAt: toLocalInput(),
     description: '',
     locationNote: '',
@@ -140,6 +141,7 @@ export default function NewIncidentPage() {
       parkId,
       type: form.type,
       severity: form.severity,
+      species: form.species.trim().replace(/\s+/g, ' ').toLowerCase() || undefined,
       description: form.description.trim(),
       observedAt: new Date(form.observedAt).toISOString(),
       deviceCreatedAt: new Date().toISOString(),
@@ -207,6 +209,9 @@ export default function NewIncidentPage() {
                 )}
               </Field>
 
+              <Field label="Species (optional)" hint="Enter the species only when known. Leave blank if unspecified; do not guess.">
+                {(props) => <Input {...props} value={form.species} onChange={set('species')} maxLength={80} />}
+              </Field>
               <Field label="Urgency" required>
                 {(props) => (
                   <Select {...props} value={form.severity} onChange={set('severity')} disabled={!form.type}>
@@ -278,6 +283,7 @@ export default function NewIncidentPage() {
               </div>
               <dl className="grid gap-3 rounded-2xl border border-line bg-surface-2 p-4 sm:grid-cols-2">
                 <div><dt className="text-xs text-subtle">Incident</dt><dd className="mt-0.5 font-semibold text-fg">{TYPE_LABELS[form.type]}</dd></div>
+                <div><dt className="text-xs text-subtle">Species</dt><dd className="mt-0.5 text-sm text-fg">{form.species.trim() || 'Not specified'}</dd></div>
                 <div><dt className="text-xs text-subtle">Urgency</dt><dd className="mt-0.5 font-semibold text-fg">{humanize(form.severity)}</dd></div>
                 <div><dt className="text-xs text-subtle">Observed</dt><dd className="mt-0.5 text-sm text-fg">{formatDateTime(form.observedAt)}</dd></div>
                 <div><dt className="text-xs text-subtle">Evidence</dt><dd className="mt-0.5 text-sm text-fg">{photos.length} photo{photos.length === 1 ? '' : 's'}</dd></div>

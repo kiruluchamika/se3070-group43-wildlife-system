@@ -1,3 +1,4 @@
+const { normalizeSpecies } = require('../../shared/species')
 const mongoose = require('mongoose')
 
 const ALERT_SEVERITIES = ['low', 'medium', 'high', 'critical']
@@ -23,6 +24,7 @@ const alertSchema = new mongoose.Schema(
     severity: { type: String, enum: ALERT_SEVERITIES, required: true },
     status: { type: String, enum: ALERT_STATUSES, default: 'active', index: true },
     title: { type: String, required: true, trim: true, maxlength: 120 },
+    species: { type: String, maxlength: 80, set: normalizeSpecies },
     message: { type: String, trim: true, maxlength: 500 },
     location: { lat: Number, lng: Number },
     source: { type: String, enum: ALERT_SOURCES, default: 'system' },
