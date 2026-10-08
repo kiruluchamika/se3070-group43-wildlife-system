@@ -1,0 +1,40 @@
+{
+  "expo": {
+    "name": "WildGuard",
+    "slug": "wildguard-mobile",
+    "scheme": "wildguard",
+    "version": "1.0.0",
+    "orientation": "default",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "lk.wildguard.mobile"
+    },
+    "android": {
+      "package": "lk.wildguard.mobile"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-sqlite",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Use your location when you capture a wildlife report or field action."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Attach evidence to your wildlife reports.",
+          "cameraPermission": "Capture evidence for your wildlife reports.",
+          "microphonePermission": false
+        }
+      ],
+      "expo-font",
+      "expo-status-bar",
+      "expo-sharing",
+      "@react-native-community/datetimepicker"
+    ]
+  }
+}
