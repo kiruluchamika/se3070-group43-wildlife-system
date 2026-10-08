@@ -1,5 +1,208 @@
-:root { --sans: 'Trebuchet MS', 'Segoe UI', sans-serif; --heading: Georgia, 'Times New Roman', serif; --mono: 'Courier New', monospace; font: 16px/1.5 var(--sans); color: #173b36; background: #f5f1e8; font-synthesis: none; text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased; }
-* { box-sizing: border-box; }
-body { margin: 0; }
-#root { min-height: 100vh; }
-h1, h2, p { margin-top: 0; }
+@import 'tailwindcss';
+
+/* Dark mode follows the data-theme attribute set by ThemeProvider. */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+@theme {
+  --font-sans: 'Plus Jakarta Sans Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, 'SFMono-Regular', monospace;
+
+  /* Brand: WildGuard teal (from Group 41's hi-fi wireframe) with a cyan accent. */
+  --color-brand-50: #effefb;
+  --color-brand-100: #c9fdf3;
+  --color-brand-200: #93f9e8;
+  --color-brand-300: #56edd8;
+  --color-brand-400: #24d6c2;
+  --color-brand-500: #0cbaa9;
+  --color-brand-600: #07968b;
+  --color-brand-700: #0b7770;
+  --color-brand-800: #0f5e5a;
+  --color-brand-900: #114e4b;
+  --color-accent-400: #38d6f5;
+  --color-accent-500: #16b9dc;
+
+  /* Semantic surfaces switch between the dark and light palettes below. */
+  --color-canvas: var(--wg-canvas);
+  --color-surface: var(--wg-surface);
+  --color-surface-2: var(--wg-surface-2);
+  --color-elevated: var(--wg-elevated);
+  --color-line: var(--wg-line);
+  --color-line-strong: var(--wg-line-strong);
+  --color-fg: var(--wg-fg);
+  --color-muted: var(--wg-muted);
+  --color-subtle: var(--wg-subtle);
+
+  --shadow-panel: var(--wg-shadow);
+  --shadow-glow: 0 0 0 1px rgb(36 214 194 / 0.35), 0 10px 40px -10px rgb(36 214 194 / 0.45);
+  --shadow-glow-danger: 0 0 0 1px rgb(248 113 113 / 0.45), 0 10px 40px -12px rgb(239 68 68 / 0.55);
+
+  --animate-pulse-ring: pulse-ring 2.2s cubic-bezier(0.2, 0.6, 0.4, 1) infinite;
+  --animate-shimmer: shimmer 1.6s linear infinite;
+  --animate-aurora: aurora 20s ease-in-out infinite alternate;
+  --animate-float: float 7s ease-in-out infinite;
+  --animate-glow: glow 2.4s ease-in-out infinite;
+
+  @keyframes pulse-ring {
+    0% { transform: scale(0.6); opacity: 0.9; }
+    80%, 100% { transform: scale(2.4); opacity: 0; }
+  }
+
+  @keyframes shimmer {
+    from { background-position: -200% 0; }
+    to { background-position: 200% 0; }
+  }
+
+  @keyframes aurora {
+    0% { transform: translate3d(0, 0, 0) rotate(0deg) scale(1); }
+    50% { transform: translate3d(4%, -6%, 0) rotate(8deg) scale(1.08); }
+    100% { transform: translate3d(-5%, 4%, 0) rotate(-6deg) scale(0.96); }
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+
+  @keyframes glow {
+    0%, 100% { box-shadow: 0 0 0 1px rgb(248 113 113 / 0.35), 0 0 24px -8px rgb(239 68 68 / 0.45); }
+    50% { box-shadow: 0 0 0 1px rgb(248 113 113 / 0.6), 0 0 36px -6px rgb(239 68 68 / 0.7); }
+  }
+}
+
+:root,
+[data-theme='dark'] {
+  color-scheme: dark;
+  --wg-canvas: #061419;
+  --wg-surface: rgb(11 31 38 / 0.78);
+  --wg-surface-2: #0f2932;
+  --wg-elevated: #14343f;
+  --wg-line: rgb(148 205 214 / 0.11);
+  --wg-line-strong: rgb(148 205 214 / 0.22);
+  --wg-fg: #e7f5f2;
+  --wg-muted: #9dbac0;
+  --wg-subtle: #6c8b92;
+  --wg-shadow: 0 1px 0 rgb(255 255 255 / 0.04) inset, 0 20px 50px -24px rgb(0 0 0 / 0.65);
+  --wg-glow-1: rgb(12 186 169 / 0.16);
+  --wg-glow-2: rgb(22 185 220 / 0.1);
+  --wg-grid: rgb(148 205 214 / 0.035);
+}
+
+[data-theme='light'] {
+  color-scheme: light;
+  --wg-canvas: #eef5f3;
+  --wg-surface: rgb(255 255 255 / 0.86);
+  --wg-surface-2: #f2f7f6;
+  --wg-elevated: #e6f0ee;
+  --wg-line: rgb(15 70 72 / 0.1);
+  --wg-line-strong: rgb(15 70 72 / 0.2);
+  --wg-fg: #0d2a2e;
+  --wg-muted: #4a676c;
+  --wg-subtle: #768f93;
+  --wg-shadow: 0 1px 0 rgb(255 255 255 / 0.7) inset, 0 18px 40px -26px rgb(13 60 62 / 0.35);
+  --wg-glow-1: rgb(12 186 169 / 0.14);
+  --wg-glow-2: rgb(22 185 220 / 0.1);
+  --wg-grid: rgb(15 70 72 / 0.04);
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    min-height: 100dvh;
+    margin: 0;
+    font-family: var(--font-sans);
+    color: var(--wg-fg);
+    background-color: var(--wg-canvas);
+    background-image:
+      radial-gradient(60rem 40rem at -10% -10%, var(--wg-glow-1), transparent 60%),
+      radial-gradient(50rem 36rem at 110% 110%, var(--wg-glow-2), transparent 60%),
+      linear-gradient(var(--wg-grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--wg-grid) 1px, transparent 1px);
+    background-size: auto, auto, 44px 44px, 44px 44px;
+    background-attachment: fixed;
+  }
+
+  ::selection {
+    background: rgb(36 214 194 / 0.35);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-brand-400);
+    outline-offset: 2px;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--wg-line-strong) transparent;
+  }
+}
+
+/* Frosted panel used by cards across every module. */
+@utility panel {
+  background: var(--wg-surface);
+  border: 1px solid var(--wg-line);
+  border-radius: 1.25rem;
+  box-shadow: var(--wg-shadow);
+  backdrop-filter: blur(16px) saturate(140%);
+}
+
+@utility text-gradient {
+  background-image: linear-gradient(100deg, var(--color-brand-300), var(--color-accent-400));
+  background-clip: text;
+  color: transparent;
+}
+
+@utility skeleton {
+  background-image: linear-gradient(90deg, var(--wg-surface-2) 0%, var(--wg-elevated) 50%, var(--wg-surface-2) 100%);
+  background-size: 200% 100%;
+  animation: var(--animate-shimmer);
+}
+
+/* Leaflet controls themed to match the dashboard. */
+.leaflet-container {
+  font-family: var(--font-sans);
+  background: var(--wg-surface-2);
+}
+
+.leaflet-control-zoom a,
+.leaflet-control-attribution {
+  background: var(--wg-surface) !important;
+  color: var(--wg-muted) !important;
+  border-color: var(--wg-line) !important;
+  backdrop-filter: blur(8px);
+}
+
+.leaflet-control-attribution a {
+  color: var(--color-brand-400) !important;
+}
+
+.leaflet-tooltip.wg-tooltip {
+  background: var(--wg-elevated);
+  color: var(--wg-fg);
+  border: 1px solid var(--wg-line-strong);
+  border-radius: 0.6rem;
+  box-shadow: var(--wg-shadow);
+  font-weight: 600;
+}
+
+.leaflet-tooltip.wg-tooltip::before {
+  display: none;
+}
+
+.wg-marker {
+  background: transparent;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
